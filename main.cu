@@ -38,7 +38,16 @@ int main(int argc, char *argv[]){
         printf("Usage: %s inputfilename\n",progname.c_str());
         exit(1);
     }
-    
+
+    std::string mode="run";
+    if (argc == 3) {
+        mode = argv[2];
+        if (mode != "check") {
+            printf("unknown mode: %s\n", mode.c_str());
+            exit(1);
+        }
+    }
+
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
     cudaSetDevice(0);
@@ -194,7 +203,7 @@ int main(int argc, char *argv[]){
     
 //Allocate forces arrays on device <and host>
     float4 *f_d;
-	cudaMalloc((void**)&f_d, N*sizeof(float4));
+    cudaMalloc((void**)&f_d, N*sizeof(float4));
     
     //float4 *f_h;
     //cudaMallocHost((void**)&f_h, N*sizeof(float4));
@@ -204,7 +213,7 @@ int main(int argc, char *argv[]){
 
 
 //Initialize Brownian Dynamics integrator parameters
-	bd_h.kT=kT;
+    bd_h.kT=kT;
     bd_h.hoz=h/zeta;
     bd_h.Gamma=sqrt(2*(bd_h.hoz)*(bd_h.kT));
     cudaMemcpyToSymbol(bd_c, &bd_h, sizeof(BrDynPar), 0, cudaMemcpyHostToDevice);
@@ -223,7 +232,6 @@ int main(int argc, char *argv[]){
     
 //Initialize FENE parameters
     fene_h.R02=fene_h.R0*fene_h.R0;
-    fene_h.kR0=fene_h.R0*fene_h.k;
     cudaMemcpyToSymbol(fene_c, &fene_h, sizeof(FENE), 0, cudaMemcpyHostToDevice);
     checkCUDAError("FENE parameters init");
     
@@ -260,6 +268,198 @@ int main(int argc, char *argv[]){
     checkCUDAError("Brownian dynamics seeds allocation");
     rand_init<<<BLOCKS,THREADS>>>(seed,RNGStates_d);
     checkCUDAError("Random number initializion");
+
+
+//Check consistency between force and energy (for debugging)
+    if (mode == "check") {
+        printf("\n");
+        printf("Check consistency between force and energy (for debugging)\n");
+
+        //Shift coordinates
+        double small=0.1;
+        cudaMemcpy(r_d, r_h, N*sizeof(float4), cudaMemcpyHostToDevice);
+
+        coord_shift<<<BLOCKS,THREADS>>>(r_d,small,N,RNGStates_d);
+        checkCUDAError("coord_shift");
+
+        cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+
+        //Allocate forces arrays on host   (on device, f_d is already allocated)
+        float4 *f_h;
+        cudaMallocHost((void**)&f_h, N*sizeof(float4));
+
+        //Neighbor list
+        SoftSphereNeighborList<<<BLOCKS,THREADS>>>(r_d,nl,bondlist,N/ntraj);
+        checkCUDAError("Neighbor List");
+
+        //Force
+        force_flush<<<BLOCKS,THREADS>>>(f_d,N);
+        checkCUDAError("Force flush");
+        
+        FENEForce<<<BLOCKS,THREADS>>>(r_d,f_d,bondlist);
+        checkCUDAError("FENE");
+        
+        SoftSphereForce<<<BLOCKS,THREADS>>>(r_d,f_d,nl,sig_d);
+        checkCUDAError("SoftSphere");
+        
+        NativeSubtractSoftSphereForce<<<BLOCKS,THREADS>>>(r_d,f_d,nclist,sig_d);
+        checkCUDAError("Native subtract Soft Sphere");
+        
+        NativeForce<<<BLOCKS,THREADS>>>(r_d,f_d,nclist);
+        checkCUDAError("Native");
+        
+        //DebyeHuckelForce<<<BLOCKS,THREADS>>>(r_d,f_d,SaltBridgeList);
+        //checkCUDAError("DebyeHuckel");
+        
+        cudaMemcpy(f_h, f_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+        checkCUDAError("Copy force back");
+
+        // Store the original coordinates
+        float4 *r_save;
+        cudaMallocHost((void**)&r_save, N*sizeof(float4));
+        cudaMemcpy(r_save, r_h, N*sizeof(float4), cudaMemcpyHostToHost);
+
+        small=0.001;
+        for (int imove=0; imove<N; imove++) {
+            for (int idim=0; idim<3; idim++) {
+            
+                cudaMemcpy(r_h, r_save, N*sizeof(float4), cudaMemcpyHostToHost);
+    
+                if (idim==0) r_h[imove].x += small;
+                if (idim==1) r_h[imove].y += small;
+                if (idim==2) r_h[imove].z += small;
+    
+                //Copy coordinates to device
+                cudaMemcpy(r_d, r_h, N*sizeof(float4), cudaMemcpyHostToDevice);
+
+                SoftSphereNeighborList<<<BLOCKS,THREADS>>>(r_d,nl,bondlist,N/ntraj);
+                checkCUDAError("Neighbor List");
+    
+                // Energy (plus)
+                FENEEnergy<<<BLOCKS,THREADS>>>(r_d,bondlist);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Efene");
+                       
+                double Efene=0.0;
+                for (int i=0; i<N; i++)
+                    Efene+=r_h[i].w;
+                        
+                SoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nl,sig_d);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Ess");
+                    
+                double Ess=0.0;
+                for (int i=0; i<N; i++)
+                    Ess+=r_h[i].w;
+                        
+                NativeSubtractSoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nclist,sig_d);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Enss");
+                        
+                for (int i=0; i<N; i++)
+                    Ess+=r_h[i].w;
+                        
+                NativeEnergy<<<BLOCKS,THREADS>>>(r_d,nclist);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Enat");
+                        
+                double Enat=0.0;
+                for (int i=0; i<N; i++)
+                    Enat+=r_h[i].w;
+                        
+                //DebyeHuckelEnergy<<<BLOCKS,THREADS>>>(r_d,SaltBridgeList);
+                //cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                //checkCUDAError("Copy coordinates back for Eel");
+                        
+                double Eel=0.0;
+                //for (int i=0; i<N; i++)
+                //    Eel+=r_h[i].w;
+    
+                doubleEpot_plus=(Efene+Ess+Enat+Eel)/2.;
+            
+                if (idim==0) r_h[imove].x -= 2.0 * small;
+                if (idim==1) r_h[imove].y -= 2.0 * small;
+                if (idim==2) r_h[imove].z -= 2.0 * small;
+    
+                //Copy coordinates to device
+                cudaMemcpy(r_d, r_h, N*sizeof(float4), cudaMemcpyHostToDevice);
+
+                SoftSphereNeighborList<<<BLOCKS,THREADS>>>(r_d,nl,bondlist,N/ntraj);
+                checkCUDAError("Neighbor List");
+    
+                // Energy (minus)
+                FENEEnergy<<<BLOCKS,THREADS>>>(r_d,bondlist);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Efene");
+                       
+                Efene=0.0;
+                for (int i=0; i<N; i++)
+                    Efene+=r_h[i].w;
+                
+                SoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nl,sig_d);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Ess");
+                    
+                Ess=0.0;
+                for (int i=0; i<N; i++)
+                    Ess+=r_h[i].w;
+                        
+                NativeSubtractSoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nclist,sig_d);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Enss");
+                        
+                for (int i=0; i<N; i++)
+                    Ess+=r_h[i].w;
+                        
+                        
+                NativeEnergy<<<BLOCKS,THREADS>>>(r_d,nclist);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Enat");
+                        
+                Enat=0.0;
+                for (int i=0; i<N; i++)
+                    Enat+=r_h[i].w;
+                        
+                //DebyeHuckelEnergy<<<BLOCKS,THREADS>>>(r_d,SaltBridgeList);
+                //cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                //checkCUDAError("Copy coordinates back for Eel");
+                        
+                Eel=0.0;
+                //for (int i=0; i<N; i++)
+                //    Eel+=r_h[i].w;
+    
+                double Epot_minus=(Efene+Ess+Enat+Eel)/2.;
+    
+                // Numerical derivative
+                double ff = - (Epot_plus - Epot_minus) * 0.5 / small;
+                
+                // Compare to force
+                printf("imove=%d\t", imove); 
+                if (idim==0) {
+                    printf("x\t%e\t%e\t%20.15f\n", f_h[imove].x, ff, f_h[imove].x - ff);
+                } else if (idim==1) {
+                    printf("y\t%e\t%e\t%20.15f\n", f_h[imove].y, ff, f_h[imove].y - ff);
+                } else {
+                    printf("z\t%e\t%e\t%20.15f\n", f_h[imove].z, ff, f_h[imove].z - ff);
+                }
+
+            } //idim
+        } //imove
+
+        cudaFree(r_d);
+        cudaFree(f_d);
+        nclist.FreeOnDevice("native contacts");
+        bondlist.FreeOnDevice("bonds");
+        SaltBridgeList.FreeOnDevice("salt bridges");
+        nl.FreeOnDevice("neighbor list");
+        //nlo.FreeOnDevice("outer neighbor list");
+        cudaDeviceReset();
+
+        exit(0);
+    }
+
+
+//Production run
    
     printf("t\tTraj#\tE_TOTAL\t\tE_POTENTIAL\tE_SoftSpheres\tE_NatCont\tE_ElStat\tE_FENE\t\t~TEMP\t<v>*neighfreq/DeltaRcut\n");
     //float Delta=0.;

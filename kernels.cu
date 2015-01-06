@@ -15,13 +15,13 @@ __global__ void force_flush (float4 *f, int N) {
 }
 
 __global__ void rand_init (int seed, curandStatePhilox4_32_10_t* states) {
-	int id = blockIdx.x*blockDim.x + threadIdx.x;
-	curand_init(seed, id, 0, &states[id]);
+    int id = blockIdx.x*blockDim.x + threadIdx.x;
+    curand_init(seed, id, 0, &states[id]);
 }
 
 __global__ void integrate(float4 *r, float4 *forces, int N, curandStatePhilox4_32_10_t* states) {
-	int id = blockIdx.x*blockDim.x + threadIdx.x;
-	if (id>=N) return;
+    int id = blockIdx.x*blockDim.x + threadIdx.x;
+    if (id>=N) return;
     
     float4 f=forces[id];
     float4 wn = curand_normal4(&states[id]); //Gaussian white noise ~N(0,1)
@@ -39,8 +39,8 @@ __global__ void integrate(float4 *r, float4 *forces, int N, curandStatePhilox4_3
 }
 
 __global__ void minimize(float4 *r, float4 *forces, int N, float alpha) {
-	int id = blockIdx.x*blockDim.x + threadIdx.x;
-	if (id>=N) return;
+    int id = blockIdx.x*blockDim.x + threadIdx.x;
+    if (id>=N) return;
     
     float4 f=forces[id];
     //float4 ri=r[id];
@@ -482,4 +482,16 @@ __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> intlist, 
         }
     }
     neiblist.count_d[i]=neighbors;
+}
+
+__global__ void coord_shift(float4 *r, double small, int N, curandStatePhilox4_32_10_t* states) {
+    int id = blockIdx.x*blockDim.x + threadIdx.x;
+    if (id>=N) return;
+    
+    float4 wn = curand_normal4(&states[id]); //Gaussian white noise ~N(0,1)
+    float4 ri=tex1Dfetch(r_t, id);
+    ri.x += small * wn.x;
+    ri.y += small * wn.y;
+    ri.z += small * wn.z;
+    r[id] = ri;
 }
