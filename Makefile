@@ -50,6 +50,6 @@ clean:
 	
 install: $(BIN) xyz2fullpdb.py pdb2rnp.py 
 #	cp $(BIN) /usr/bin/$(BIN)
-	cp $(BIN) /home/zhur/bin/$(BIN)
-	cp pdb2rnp.py /home/zhur/bin/
+	cp $(BIN) ./bin/$(BIN)
+	cp pdb2rnp.py ./bin/
 #	cp xyz2fullpdb.py /home/zhur/bin/
