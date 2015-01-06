@@ -96,7 +96,7 @@ __global__ void FENEEnergy(float4* r, InteractionList<bond> list) {
         l.w=sqrtf(l.x*l.x+l.y*l.y+l.z*l.z);
         //printf("%d %d %f %f %f\n",i,b.i2,energy,b.l0,l.w);
         l.w-=b.l0;
-        l.w=.5*fene_c.k*fene_c.R02*logf(1.-l.w*l.w/fene_c.R02);
+        l.w=-.5*fene_c.k*fene_c.R02*logf(1.-l.w*l.w/fene_c.R02);
         //printf("%f\n",l.w);
         energy+=l.w;
     }
