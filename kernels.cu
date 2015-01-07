@@ -69,7 +69,7 @@ __global__ void FENEForce(float4* r, float4* forces, InteractionList<bond> list)
         l.w=sqrtf(l.x*l.x+l.y*l.y+l.z*l.z);
         l.w-=b.l0;
         float denom=(1.-l.w*l.w/fene_c.R02);
-        l.w=fene_c.kR0*l.w/denom/(l.w+b.l0);
+        l.w=fene_c.k*l.w/denom/(l.w+b.l0);
         f.x+=l.w*l.x;
         f.y+=l.w*l.y;
         f.z+=l.w*l.z;
@@ -96,7 +96,7 @@ __global__ void FENEEnergy(float4* r, InteractionList<bond> list) {
         l.w=sqrtf(l.x*l.x+l.y*l.y+l.z*l.z);
         //printf("%d %d %f %f %f\n",i,b.i2,energy,b.l0,l.w);
         l.w-=b.l0;
-        l.w=.5*fene_c.k*fene_c.R02*logf(1.-l.w*l.w/fene_c.R02);
+        l.w=-.5*fene_c.k*fene_c.R02*logf(1.-l.w*l.w/fene_c.R02);
         //printf("%f\n",l.w);
         energy+=l.w;
     }

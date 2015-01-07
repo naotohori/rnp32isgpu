@@ -88,7 +88,6 @@ __device__ __constant__ ElStatPar els_c;
 struct FENE {
     static float const k=20.;
     static float const R0=2.;
-    float kR0; //k*R_0
     float R02;  //R0^2
 };
 
