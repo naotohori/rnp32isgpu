@@ -375,7 +375,7 @@ int main(int argc, char *argv[]){
                 //for (int i=0; i<N; i++)
                 //    Eel+=r_h[i].w;
     
-                doubleEpot_plus=(Efene+Ess+Enat+Eel)/2.;
+                double Epot_plus=(Efene+Ess+Enat+Eel)/2.;
             
                 if (idim==0) r_h[imove].x -= 2.0 * small;
                 if (idim==1) r_h[imove].y -= 2.0 * small;
