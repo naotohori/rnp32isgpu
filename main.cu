@@ -455,11 +455,11 @@ int main(int argc, char *argv[]){
             Etot=(float*)malloc(ntraj*sizeof(float));
             
             for (int itraj=0; itraj<ntraj; itraj++) {
-                Epot[itraj]=(Efene[itraj]+Ehb[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.;
+                Epot[itraj]=(Efene[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.+Ehb[itraj]+Eang[itraj];
                 Etot[itraj]=Epot[itraj]+Ekin[itraj];
                 printf("%d\t%d\t",t,itraj);
                 printf("%e\t%e\t",Etot[itraj],Epot[itraj]);
-                printf("%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Ehb[itraj]/2.,Eang[itraj]/2.);
+                printf("%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Ehb[itraj],Eang[itraj]);
                 printf("%f\t%f\n",Ekin[itraj]*ntraj/(N*6.*bd_h.hoz/503.6),sqrt(Ekin[itraj]*ntraj/N)*neighfreq/(ss_h.Rcut-ss_h.MaxSigma*ss_h.CutOffFactor));
             }
             

@@ -47,7 +47,7 @@ __global__ void HarmonicBondEnergy(float4* r, InteractionList<bond> list) {
         l.w=b.k*l.w*l.w;
         energy+=l.w;
     }
-    r[i].w=energy;
+    r[i].w=0.5*energy; // To eliminate duplication
 }
 
 

@@ -25,10 +25,10 @@
         /**
         FENEForce<<<BLOCKS,THREADS>>>(r_d,f_d,bondlist);
         checkCUDAError("FENE");
+        **/
 
         HarmonicBondForce<<<BLOCKS,THREADS>>>(r_d,f_d,harmonicbondlist);
         checkCUDAError("HarmonicBond");
-        **/
 
         AngleVertexForce<<<BLOCKS,THREADS>>>(r_d,f_d,anglevertexlist);
         checkCUDAError("AngleVertex");
@@ -92,6 +92,7 @@
                        
                 for (int i=0; i<N; i++)
                     Efene+=r_h[i].w;
+                **/
 
                 HarmonicBondEnergy<<<BLOCKS,THREADS>>>(r_d,harmonicbondlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -99,7 +100,6 @@
                        
                 for (int i=0; i<N; i++)
                     Ehb+=r_h[i].w;
-                **/
                         
                 AngleEnergy<<<BLOCKS,THREADS>>>(r_d,anglevertexlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -139,8 +139,7 @@
                     Eel+=r_h[i].w;
                 **/
     
-                //double Epot_plus=(Efene+Ehb+Ess+Enat+Eel)/2. + Eang;
-                double Epot_plus = Eang;
+                double Epot_plus=(Efene+Ess+Enat+Eel)/2. + Ehb + Eang;
             
                 if (idim==0) r_h[imove].x -= 2.0 * small;
                 if (idim==1) r_h[imove].y -= 2.0 * small;
@@ -166,6 +165,7 @@
                        
                 for (int i=0; i<N; i++)
                     Efene+=r_h[i].w;
+                **/
 
                 HarmonicBondEnergy<<<BLOCKS,THREADS>>>(r_d,harmonicbondlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -173,7 +173,6 @@
                        
                 for (int i=0; i<N; i++)
                     Ehb+=r_h[i].w;
-                **/
                         
                 AngleEnergy<<<BLOCKS,THREADS>>>(r_d,anglevertexlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -214,8 +213,7 @@
                     Eel+=r_h[i].w;
                 **/
     
-                //double Epot_minus=(Efene+Ehb+Ess+Enat+Eel)/2. + Eang;
-                double Epot_minus = Eang; 
+                double Epot_minus=(Efene+Ess+Enat+Eel)/2. + Ehb + Eang;
     
                 // Numerical derivative
                 double ff = - (Epot_plus - Epot_minus) * 0.5 / small;
