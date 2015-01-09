@@ -36,6 +36,22 @@ int seed=1234;
 struct bond { //For bond map
     int i2;
     float l0;
+    float k;
+    float R0;
+};
+
+struct angle_vertex { //For angle map
+    int i1;
+    int i2;
+    float a0;
+    float k;
+};
+
+struct angle_end { //For angle map
+    int iv;
+    int i2;
+    float a0;
+    float k;
 };
 
 struct __align__(16) nc { //For native contact map

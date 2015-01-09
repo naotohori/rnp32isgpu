@@ -288,6 +288,7 @@ __global__ void NativeForce(float4* r, float4* forces, InteractionList<nc> list)
     forces[i]=f;
 }
 
+/**
 __global__ void NativeForce(float4* r, float4* forces, InteractionList<nc> list, float Delta) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i>=list.N) return;
@@ -312,6 +313,7 @@ __global__ void NativeForce(float4* r, float4* forces, InteractionList<nc> list,
     }
     forces[i]=f;
 }
+**/
 
 __global__ void NativeEnergy(float4* r, InteractionList<nc> list) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -386,6 +388,7 @@ __global__ void DebyeHuckelEnergy(float4* r, InteractionList<bond> list) {
 }
 
 
+/**
 __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, int Ntraj) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i>=list.N) return;
@@ -427,8 +430,9 @@ __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, int
     list.count_d[i]=neighbors;
     
 }
+**/
 
-__global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, InteractionList<bond> blist, int Ntraj) {
+__global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, InteractionList<bond> blist, InteractionList<bond> hblist, int Ntraj) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i>=list.N) return;
     
@@ -436,20 +440,26 @@ __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, Int
     float4 ri=tex1Dfetch(r_t,i);
     int neighbors=0;
     int Nb=blist.count_d[i];
+    int Nhb=hblist.count_d[i];
     for (int j=0;j<list.N;j++) {
-        //float4 r2=r[j];
-        float4 r2=tex1Dfetch(r_t,j);
-        r2.x-=ri.x;
-        r2.y-=ri.y;
-        r2.z-=ri.z;
-        r2.w=r2.x*r2.x+r2.y*r2.y+r2.z*r2.z;
-        
         //Check that i and j are not bonded by looping over bonds of i
         bool nonbonded=true;
         for (int ib=0; ib<Nb; ib++) {
             bond b=blist.map_d[ib*blist.N+i];
             if (b.i2==j) nonbonded=false;
         }
+        for (int ib=0; ib<Nhb; ib++) {
+            bond b=hblist.map_d[ib*hblist.N+i];
+            if (b.i2==j) nonbonded=false;
+        }
+        if (!nonbonded) continue; 
+
+        //float4 r2=r[j];
+        float4 r2=tex1Dfetch(r_t,j);
+        r2.x-=ri.x;
+        r2.y-=ri.y;
+        r2.z-=ri.z;
+        r2.w=r2.x*r2.x+r2.y*r2.y+r2.z*r2.z;
         
         if ((r2.w<ss_c.Rcut2) and (i!=j) and (nonbonded) and (i/Ntraj)==(j/Ntraj)) {
             list.map_d[neighbors*list.N+i]=j;
@@ -460,6 +470,7 @@ __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> list, Int
     
 }
 
+/**
 __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> intlist, InteractionList<int> neiblist) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i>=intlist.N) return;
@@ -483,6 +494,7 @@ __global__ void SoftSphereNeighborList(float4* r, InteractionList<int> intlist, 
     }
     neiblist.count_d[i]=neighbors;
 }
+**/
 
 __global__ void coord_shift(float4 *r, double small, int N, curandStatePhilox4_32_10_t* states) {
     int id = blockIdx.x*blockDim.x + threadIdx.x;
