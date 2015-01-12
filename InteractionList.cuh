@@ -147,43 +147,11 @@ public:
     
 };
 
-class InteractionListAngleVertex: public InteractionList<angle> {
+class InteractionListAngle: public InteractionList<angle> {
 
 public:
     
-    InteractionListAngleVertex(int N_in, std::string msg, int ntraj) {
-        
-        N=N_in*ntraj;
-        Nmax=3;
-        AllocateOnDevice(msg);
-        AllocateOnHost();
-    }
-    
-    void Append(int i1, int iv, int i2, float k, float a0, std::string msg, int N_in, int ntraj) {
-
-        angle a;
-        a.iv = -1;  // not used
-        a.i1 = i1;
-        a.i2 = i2;
-        a.k  = k;
-        a.a0 = a0;
-
-        for (int itraj=0; itraj<ntraj; itraj++) {
-            map_h[N*count_h[iv]+iv]=a;
-            count_h[iv]++;
-                
-            CheckNmaxHost(iv,msg);
-
-            iv+=N_in;
-        }
-    }
-};
-
-class InteractionListAngleEnd: public InteractionList<angle> {
-
-public:
-    
-    InteractionListAngleEnd(int N_in, std::string msg, int ntraj) {
+    InteractionListAngle(int N_in, std::string msg, int ntraj) {
         
         N=N_in*ntraj;
         Nmax=4;
@@ -191,31 +159,26 @@ public:
         AllocateOnHost();
     }
     
-    void Append(int i1, int iv, int i2, float k, float a0, std::string msg, int N_in, int ntraj) {
+    void Append(int i_in, int i1, int iv, int i2, float k, float a0, std::string msg, int N_in, int ntraj) {
 
         angle a;
+        a.i1 = i1;
         a.iv = iv;
-        a.i1 = -1;  // not used
+        a.i2 = i2;
         a.k  = k;
         a.a0 = a0;
 
         for (int itraj=0; itraj<ntraj; itraj++) {
-            a.i2 = i2;
-            map_h[N*count_h[i1]+i1]=a;
-            count_h[i1]++;
-
-            a.i2 = i1;
-            map_h[N*count_h[i2]+i2]=a;
-            count_h[i2]++;
+            map_h[N*count_h[i_in]+i_in]=a;
+            count_h[i_in]++;
                 
-            CheckNmaxHost(i1,msg);
-            CheckNmaxHost(i2,msg);
+            CheckNmaxHost(i_in,msg);
 
-            i1+=N_in;
-            i2+=N_in;
+            i_in+=N_in;
         }
     }
 };
+
 
 class InteractionListNC: public InteractionList<nc> {
     

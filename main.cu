@@ -151,15 +151,16 @@ int main(int argc, char *argv[]){
     fscanf(ind,"%s",comments);
     fscanf(ind,"%d",&Nang);
     printf("%d\n", Nang);
-    InteractionListAngleVertex anglevertexlist(N/ntraj, "bond angle", ntraj);
-    InteractionListAngleEnd    angleendlist(N/ntraj, "bond angle", ntraj);
+    InteractionListAngle anglevertexlist(N/ntraj, "bond angle", ntraj);
+    InteractionListAngle angleendlist(N/ntraj, "bond angle", ntraj);
     for (int iang=0; iang<Nang; iang++) {
         int i1,iv,i2;
         float k,a0;
         if (fscanf(ind,"%d %d %d %f %f", &i1,&iv,&i2,&k,&a0)==EOF)
             printf("Premature end of file at %d/%d bond angle read\n",iang,Nang);
-        anglevertexlist.Append(i1,iv,i2,k,a0, "bond angle", N/ntraj, ntraj);
-        angleendlist.Append(i1,iv,i2,k,a0, "bond angle", N/ntraj, ntraj);
+        anglevertexlist.Append(iv,i1,iv,i2,k,a0, "bond angle", N/ntraj, ntraj);
+        angleendlist.Append(i1,i1,iv,i2,k,a0, "bond angle", N/ntraj, ntraj);
+        angleendlist.Append(i2,i2,iv,i1,k,a0, "bond angle", N/ntraj, ntraj);
     }
     anglevertexlist.CopyToDevice("bond angle");
     angleendlist.CopyToDevice("bond angle");
