@@ -9,6 +9,13 @@ __device__ float dot_product(const float4 & a, const float4 & b) {
     // CAUTION: This function does not use a.w or b.w.
 }
 
+__device__ float4 cross_product(const float4 & a, const float4 & b) {
+    return make_float4(a.y*b.z - a.z*b.y,
+                       a.z*b.x - a.x*b.z,
+                       a.x*b.y - a.y*b.x,
+                       0.f);
+    // CAUTION: This function does not use a.w or b.w, and return 0.0 for w.
+}
 
 __global__ void HarmonicBondForce(float4* r, float4* forces, InteractionList<bond> list) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
@@ -133,7 +140,7 @@ __global__ void AngleEnergy(float4* r, InteractionList<angle> list) {
 }
 
 
-// This function should be called for every P2 particles
+// This function should be called for a list of P2 particles
 __global__ void StackEnergy(float4* r, InteractionList<stack> list) {
     int i = blockIdx.x*blockDim.x + threadIdx.x;
     if (i>=list.N) return;
@@ -159,13 +166,8 @@ __global__ void StackEnergy(float4* r, InteractionList<stack> list) {
     denom += st.kl * delta * delta;
 
     // dihedral of P1-S1-P2-S2
-    float4 m,n;  // normal vectors
-    m.x = P1S1.y * P2S1.z - P1S1.z * P2S1.y;
-    m.y = P1S1.z * P2S1.x - P1S1.x * P2S1.z;
-    m.z = P1S1.x * P2S1.y - P1S1.y * P2S1.x;
-    n.x = P2S1.y * P2S2.z - P2S1.z * P2S2.y;
-    n.y = P2S1.z * P2S2.x - P2S1.x * P2S2.z;
-    n.z = P2S1.x * P2S2.y - P2S1.y * P2S2.x;
+    float4 m = cross_product(P1S1, P2S1); // normal vectors
+    float4 n = cross_product(P2S1, P2S2);
     delta = atan2( dot_product(P1S1,n) * sqrt(dot_product(P2S1,P2S1)), dot_product(m,n)) - st.phi01;
     if (delta > CUDART_PI_F) { 
        delta = delta - 2.*CUDART_PI_F;
@@ -175,9 +177,7 @@ __global__ void StackEnergy(float4* r, InteractionList<stack> list) {
     denom += st.kphi1 * delta * delta;
 
     // dihedral of P3-S2-P2-S1
-    m.x = P3S2.y * P2S2.z - P3S2.z * P2S2.y;
-    m.y = P3S2.z * P2S2.x - P3S2.x * P2S2.z;
-    m.z = P3S2.x * P2S2.y - P3S2.y * P2S2.x;
+    m = cross_product(P3S2, P2S2);
     n.x = -n.x;
     n.y = -n.y;
     n.z = -n.z;
@@ -224,13 +224,8 @@ __global__ void StackP13Force(float4* r, float4* forces, InteractionList<stack> 
         denom += st.kl * delta * delta;
 
         // dihedral of P1-S1-P2-S2
-        float4 m,n;  // normal vectors
-        m.x = P1S1.y * P2S1.z - P1S1.z * P2S1.y;
-        m.y = P1S1.z * P2S1.x - P1S1.x * P2S1.z;
-        m.z = P1S1.x * P2S1.y - P1S1.y * P2S1.x;
-        n.x = P2S1.y * P2S2.z - P2S1.z * P2S2.y;
-        n.y = P2S1.z * P2S2.x - P2S1.x * P2S2.z;
-        n.z = P2S1.x * P2S2.y - P2S1.y * P2S2.x;
+        float4 m = cross_product(P1S1, P2S1); // normal vectors
+        float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
         delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
         if (delta > CUDART_PI_F) { 
@@ -247,9 +242,7 @@ __global__ void StackP13Force(float4* r, float4* forces, InteractionList<stack> 
         ft.z = fact * m.z;
 
         // dihedral of P3-S2-P2-S1
-        m.x = P3S2.y * P2S2.z - P3S2.z * P2S2.y;
-        m.y = P3S2.z * P2S2.x - P3S2.x * P2S2.z;
-        m.z = P3S2.x * P2S2.y - P3S2.y * P2S2.x;
+        m = cross_product(P3S2, P2S2);
         n.x = -n.x;
         n.y = -n.y;
         n.z = -n.z;
@@ -301,13 +294,8 @@ __global__ void StackP2Force(float4* r, float4* forces, InteractionList<stack> l
         denom += st.kl * delta * delta;
 
         // dihedral of P1-S1-P2-S2
-        float4 m,n;  // normal vectors
-        m.x = P1S1.y * P2S1.z - P1S1.z * P2S1.y;
-        m.y = P1S1.z * P2S1.x - P1S1.x * P2S1.z;
-        m.z = P1S1.x * P2S1.y - P1S1.y * P2S1.x;
-        n.x = P2S1.y * P2S2.z - P2S1.z * P2S2.y;
-        n.y = P2S1.z * P2S2.x - P2S1.x * P2S2.z;
-        n.z = P2S1.x * P2S2.y - P2S1.y * P2S2.x;
+        float4 m = cross_product(P1S1, P2S1); // normal vectors
+        float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
         delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
         if (delta > CUDART_PI_F) { 
@@ -337,9 +325,7 @@ __global__ void StackP2Force(float4* r, float4* forces, InteractionList<stack> l
         ft.z = fact_i * fi.z + fact_j * fj.z;
 
         // dihedral of P3-S2-P2-S1
-        m.x = P3S2.y * P2S2.z - P3S2.z * P2S2.y;
-        m.y = P3S2.z * P2S2.x - P3S2.x * P2S2.z;
-        m.z = P3S2.x * P2S2.y - P3S2.y * P2S2.x;
+        m = cross_product(P3S2, P2S2); // normal vectors
         n.x = -n.x;
         n.y = -n.y;
         n.z = -n.z;
@@ -408,13 +394,8 @@ __global__ void StackSForce(float4* r, float4* forces, InteractionList<stack> li
         denom += st.kl * delta * delta;
 
         // dihedral of P1-S1-P2-S2
-        float4 m,n;  // normal vectors
-        m.x = P1S1.y * P2S1.z - P1S1.z * P2S1.y;
-        m.y = P1S1.z * P2S1.x - P1S1.x * P2S1.z;
-        m.z = P1S1.x * P2S1.y - P1S1.y * P2S1.x;
-        n.x = P2S1.y * P2S2.z - P2S1.z * P2S2.y;
-        n.y = P2S1.z * P2S2.x - P2S1.x * P2S2.z;
-        n.z = P2S1.x * P2S2.y - P2S1.y * P2S2.x;
+        float4 m = cross_product(P1S1, P2S1); // normal vectors
+        float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
         delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
         if (delta > CUDART_PI_F) { 
@@ -444,9 +425,7 @@ __global__ void StackSForce(float4* r, float4* forces, InteractionList<stack> li
         ft.z = fact_i * fi.z + fact_j * fj.z;
 
         // dihedral of P3-S2-P2-S1
-        m.x = P3S2.y * P2S2.z - P3S2.z * P2S2.y;
-        m.y = P3S2.z * P2S2.x - P3S2.x * P2S2.z;
-        m.z = P3S2.x * P2S2.y - P3S2.y * P2S2.x;
+        m = cross_product(P3S2, P2S2); // normal vectors
         n.x = -n.x;
         n.y = -n.y;
         n.z = -n.z;
@@ -512,13 +491,8 @@ __global__ void StackBForce(float4* r, float4* forces, InteractionList<stack> li
         ft.z = - fact * B2B1.z;
 
         // dihedral of P1-S1-P2-S2
-        float4 m,n;  // normal vectors
-        m.x = P1S1.y * P2S1.z - P1S1.z * P2S1.y;
-        m.y = P1S1.z * P2S1.x - P1S1.x * P2S1.z;
-        m.z = P1S1.x * P2S1.y - P1S1.y * P2S1.x;
-        n.x = P2S1.y * P2S2.z - P2S1.z * P2S2.y;
-        n.y = P2S1.z * P2S2.x - P2S1.x * P2S2.z;
-        n.z = P2S1.x * P2S2.y - P2S1.y * P2S2.x;
+        float4 m = cross_product(P1S1, P2S1); // normal vectors
+        float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
         delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
         if (delta > CUDART_PI_F) { 
@@ -529,9 +503,7 @@ __global__ void StackBForce(float4* r, float4* forces, InteractionList<stack> li
         denom += st.kphi1 * delta * delta;
 
         // dihedral of P3-S2-P2-S1
-        m.x = P3S2.y * P2S2.z - P3S2.z * P2S2.y;
-        m.y = P3S2.z * P2S2.x - P3S2.x * P2S2.z;
-        m.z = P3S2.x * P2S2.y - P3S2.y * P2S2.x;
+        m = cross_product(P3S2, P2S2); // normal vectors
         n.x = -n.x;
         n.y = -n.y;
         n.z = -n.z;
