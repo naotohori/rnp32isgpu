@@ -4,6 +4,14 @@ from Bio.PDB import *
 from numpy import *
 import re
 import sys
+import math
+
+#temp_kT = 0.59
+temp_kT = 0.64216500491
+#temp_kT = 0.59
+
+kB = 0.0019872041
+temp_T = temp_kT / kB
 
 bond_k  = 20.0
 bond_R0 =  2.0
@@ -14,6 +22,44 @@ DTRNA_angle_k_PSB =  5.0
 DTRNA_angle_k_PSP = 20.0
 DTRNA_angle_k_BSP =  5.0
 DTRNA_angle_k_SPS = 20.0
+DTRNA_st_k_l = 1.4
+DTRNA_st_k_phi = 4.0
+
+DTRNA_st_param = { #       h       s         Tm
+                 "AA":  (4.348,  -0.319,   298.9),
+                 "AC":  (4.311,  -0.319,   298.9),
+                 "AG":  (5.116,   5.301,   341.2),
+                 "AU":  (4.311,  -0.319,   298.9),
+                 "CA":  (4.287,  -0.319,   298.9),
+                 "CC":  (4.015,  -1.567,   285.8),
+                 "CG":  (4.602,   0.774,   315.5),
+                 "CU":  (3.995,  -1.567,   285.8),
+                 "GA":  (5.079,   5.301,   341.2),
+                 "GC":  (5.075,   4.370,   343.2),
+                 "GG":  (5.555,   7.346,   366.3),
+                 "GU":  (4.977,   2.924,   338.2),
+                 "UA":  (4.287,  -0.319,   298.9),
+                 "UC":  (3.992,  -1.567,   285.8),
+                 "UG":  (5.032,   2.924,   338.2),
+                 "UU":  (3.370,  -3.563,   251.6)  }
+
+DTRNA_st_dist = {"AA":  4.1806530 , "AC":  3.8260185 , "AG":  4.4255305 , "AU":  3.8260185 ,
+                 "CA":  4.7010580 , "CC":  4.2500910 , "CG":  4.9790760 , "CU":  4.2273615 ,
+                 "GA":  4.0128560 , "GC":  3.6784360 , "GG":  4.2427250 , "GU":  3.6616930 ,
+                 "UA":  4.7010580 , "UC":  4.2679180 , "UG":  4.9977560 , "UU":  4.2453650 }
+
+DTRNA_st_dih_PSPS = -148.215 / 180.0 * math.pi
+DTRNA_st_dih_SPSP = 175.975 / 180.0 * math.pi 
+
+NN = ["AA", "AC", "AG", "AU", "CA", "CC", "CG", "CU",
+      "GA", "GC", "GG", "GU", "UA", "UC", "UG", "UU"]
+
+DTRNA_st_U0 = {}
+for n in NN:
+    h  = DTRNA_st_param[n][0]
+    s  = DTRNA_st_param[n][1]
+    Tm = DTRNA_st_param[n][2]
+    DTRNA_st_U0[n] = -h + kB * (temp_T - Tm) * s
 
 # if len(sys.argv)<4:
 #   print "Usage: initialstructure.pdb finalstructure.pdb inputfile.sopscgpu"
@@ -263,6 +309,7 @@ Nb=2*Naa-Nch; #Number of bonds in SOP-SC. Each residue has two bonds, except for
 #Nb=Naa-Nch; #Number of bonds in SOP. Each residue has a bond, except for Nch terminal residues 
 Nhb=3*Nnuc-Nchr #Number of hamonic bonds
 Nang=4*Nnuc-3*Nchr #Number of bond angles (RNA)
+Nst = Nnuc -3*Nchr
 
 
 f=open('start.xyz','w')
@@ -281,7 +328,7 @@ f=open(outputname,'w')
 f.write("NumSteps 2e+5\n")
 f.write("Timestep(h) 0.05\n")
 f.write("Friction(zeta) 50.\n")
-f.write("Temperature 0.59\n")
+f.write("Temperature %f\n" % temp_kT)
 f.write("NeighborListUpdateFrequency 10\n")
 f.write("OutputFrequency 1000\n")
 f.write("TrajectoryWriteFrequency 10000\n")
@@ -345,6 +392,38 @@ for i in range(Nnuc):
         f.write("%d %d %d %f %f\n" % (iP,iS,iPnext, DTRNA_angle_k_PSP, calc_angle(phsv[i],susv[i],phsv[i+1])))
         f.write("%d %d %d %f %f\n" % (iB,iS,iPnext, DTRNA_angle_k_BSP, calc_angle(basv[i],susv[i],phsv[i+1])))
         f.write("%d %d %d %f %f\n" % (iS,iPnext,iSnext, DTRNA_angle_k_BSP, calc_angle(susv[i],phsv[i+1],susv[i+1])))
+
+#Stack
+f.write("Stack\n")
+f.write("%d\n" % Nst)
+for i in range(Nnuc):
+    ## Check if stack exists between i and (i-1)
+    if i==0:       # The first residue in the first chain (no stack)
+        continue
+    if (i-1)==0:   # The first stack in the first chain (not considered because dihedral can not be defined)
+        continue
+    if (i-1) in rterres:  # The first residue in other chains (no stack)
+        continue
+    if (i-2) in rterres:  # The first stack in other chains (not considered because dihedral can not be defined)
+        continue
+    if i in rterres:  # The last stack in each chain (not considered because dihedral can not be defined)
+        continue
+    iP1 = 2*Naa+(i-1)
+    iS1 = iP1 + Nnuc
+    iB1 = iS1 + Nnuc
+    iP2 = 2*Naa+i
+    iS2 = iP2 + Nnuc
+    iB2 = iS2 + Nnuc
+    iP3 = 2*Naa+(i+1)
+    n = "%s%s" % (rseq[i-1], rseq[i])
+    f.write("%d %d %d %d %d %d %d %f %f %f %f %f %f %f\n" % 
+            (iP1, iS1, iB1, iP2, iS2, iB2, iP3, 
+            DTRNA_st_U0[n], DTRNA_st_k_l, DTRNA_st_k_phi, DTRNA_st_k_phi,
+            DTRNA_st_dist[n], DTRNA_st_dih_PSPS, DTRNA_st_dih_SPSP) )
+            #(basv[i-1]-basv[i]).norm(), ## l0 
+            #calc_dihedral(phsv[i-1], susv[i-1], phsv[i], susv[i]),   # phi01
+            #calc_dihedral(phsv[i+1], susv[i], phsv[i], susv[i-1])) ) # phi02
+
 
 #Native contacts of starting structure
 f.write("%d\n" % len(ncs))

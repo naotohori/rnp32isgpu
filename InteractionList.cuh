@@ -147,11 +147,11 @@ public:
     
 };
 
-class InteractionListAngleVertex: public InteractionList<angle_vertex> {
+class InteractionListAngleVertex: public InteractionList<angle> {
 
 public:
     
-    InteractionListAngleVertex(int N_in, int Na, std::string msg, int ntraj) {
+    InteractionListAngleVertex(int N_in, std::string msg, int ntraj) {
         
         N=N_in*ntraj;
         Nmax=3;
@@ -161,7 +161,8 @@ public:
     
     void Append(int i1, int iv, int i2, float k, float a0, std::string msg, int N_in, int ntraj) {
 
-        angle_vertex a;
+        angle a;
+        a.iv = -1;  // not used
         a.i1 = i1;
         a.i2 = i2;
         a.k  = k;
@@ -178,11 +179,11 @@ public:
     }
 };
 
-class InteractionListAngleEnd: public InteractionList<angle_end> {
+class InteractionListAngleEnd: public InteractionList<angle> {
 
 public:
     
-    InteractionListAngleEnd(int N_in, int Na, std::string msg, int ntraj) {
+    InteractionListAngleEnd(int N_in, std::string msg, int ntraj) {
         
         N=N_in*ntraj;
         Nmax=4;
@@ -192,8 +193,9 @@ public:
     
     void Append(int i1, int iv, int i2, float k, float a0, std::string msg, int N_in, int ntraj) {
 
-        angle_end a;
+        angle a;
         a.iv = iv;
+        a.i1 = -1;  // not used
         a.k  = k;
         a.a0 = a0;
 
@@ -302,6 +304,47 @@ public:
         
         CopyToDevice(msg);
         FreeOnHost();
+    }
+};
+
+class InteractionListStack: public InteractionList<stack> {
+
+public:
+    InteractionListStack(int N_in, std::string msg, int ntraj) {
+        N=N_in*ntraj;
+        Nmax=2;
+        AllocateOnDevice(msg);
+        AllocateOnHost();
+    }
+    
+    void Append(int i_in, int iP1, int iS1, int iB1, int iP2, int iS2, int iB2, int iP3,
+                float U0, float kl, float kphi1, float kphi2, float l0, float phi01, float phi02,
+                std::string msg, int N_in, int ntraj) {
+
+        stack st;
+        st.iP1 = iP1;
+        st.iS1 = iS1;
+        st.iB1 = iB1;
+        st.iP2 = iP2;
+        st.iS2 = iS2;
+        st.iB2 = iB2;
+        st.iP3 = iP3;
+        st.U0 = U0;
+        st.kl = kl;
+        st.kphi1 = kphi1;
+        st.kphi2 = kphi2;
+        st.l0 = l0;
+        st.phi01 = phi01;
+        st.phi02 = phi02;
+
+        for (int itraj=0; itraj<ntraj; itraj++) {
+            map_h[N*count_h[i_in]+i_in] = st;
+            count_h[i_in]++;
+                
+            CheckNmaxHost(i_in,msg);
+
+            i_in += N_in;
+        }
     }
 };
 

@@ -40,18 +40,29 @@ struct bond { //For bond map
     float R0;
 };
 
-struct angle_vertex { //For angle map
+struct angle { //For angle map
+    int iv;
     int i1;
     int i2;
     float a0;
     float k;
 };
 
-struct angle_end { //For angle map
-    int iv;
-    int i2;
-    float a0;
-    float k;
+struct stack {
+    int iP1;
+    int iS1;
+    int iB1;
+    int iP2;
+    int iS2;
+    int iB2;
+    int iP3;
+    float U0;
+    float kl;
+    float kphi1;
+    float kphi2;
+    float l0;
+    float phi01;
+    float phi02;
 };
 
 struct __align__(16) nc { //For native contact map

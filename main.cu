@@ -146,13 +146,13 @@ int main(int argc, char *argv[]){
     printf("%d\n", Nhb);
     InteractionListBond harmonicbondlist(ind,N/ntraj,MaxBondsPerAtom,Nhb,"covalent bond (harmonic)",ntraj);
 
-// Read analges and build map, allocate and copy to device
+// Read angles and build map, allocate and copy to device
     int Nang; //Number of angles
     fscanf(ind,"%s",comments);
     fscanf(ind,"%d",&Nang);
     printf("%d\n", Nang);
-    InteractionListAngleVertex anglevertexlist(N/ntraj, Nang, "bond angle", ntraj);
-    InteractionListAngleEnd    angleendlist(N/ntraj, Nang, "bond angle", ntraj);
+    InteractionListAngleVertex anglevertexlist(N/ntraj, "bond angle", ntraj);
+    InteractionListAngleEnd    angleendlist(N/ntraj, "bond angle", ntraj);
     for (int iang=0; iang<Nang; iang++) {
         int i1,iv,i2;
         float k,a0;
@@ -165,6 +165,49 @@ int main(int argc, char *argv[]){
     angleendlist.CopyToDevice("bond angle");
     anglevertexlist.FreeOnHost();
     angleendlist.FreeOnHost();
+
+// Read stacks and build map, allocate and copy to device
+    int Nst; //Number of stacks
+    fscanf(ind,"%s",comments);
+    fscanf(ind,"%d",&Nst);
+    printf("%d\n", Nst);
+    InteractionListStack stackP13list(N/ntraj, "stack", ntraj);  // For P1 and P3
+    InteractionListStack stackP2list(N/ntraj, "stack", ntraj);   // For P2
+    InteractionListStack stackSlist(N/ntraj, "stack", ntraj);    // For S1 and S2
+    InteractionListStack stackBlist(N/ntraj, "stack", ntraj);    // For B1 and B2
+    for (int ist=0; ist<Nst; ist++) {
+        int iP1, iP2, iP3, iS1, iS2, iB1, iB2;
+        float U0, kl, kphi1, kphi2;
+        float l0, phi01, phi02;
+        if (fscanf(ind, "%d %d %d %d %d %d %d %f %f %f %f %f %f %f",
+                        &iP1,&iS1,&iB1,&iP2,&iS2,&iB2,&iP3, 
+                        &U0,&kl,&kphi1,&kphi2,&l0,&phi01,&phi02)==EOF)
+        {
+            printf("Premature end of file at %d/%d stack read\n", ist, Nst);
+        }
+        stackP13list.Append(iP1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
+                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+        stackP13list.Append(iP3, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
+                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+        stackP2list.Append(iP2, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
+                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+        stackSlist.Append(iS1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
+                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+        stackSlist.Append(iS2, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
+                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+        stackBlist.Append(iB1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
+                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+        stackBlist.Append(iB2, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
+                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+    }
+    stackP13list.CopyToDevice("stack");
+    stackP2list.CopyToDevice("stack");
+    stackSlist.CopyToDevice("stack");
+    stackBlist.CopyToDevice("stack");
+    stackP13list.FreeOnHost();
+    stackP2list.FreeOnHost();
+    stackSlist.FreeOnHost();
+    stackBlist.FreeOnHost();
 
 // Read native contacts and build map for initial structure, allocate and copy to device
     int Nnc;  //Number of native contacts (initial)
@@ -329,7 +372,7 @@ int main(int argc, char *argv[]){
 
 
 //Production run
-    printf("t\tTraj#\tE_TOTAL\t\tE_POTENTIAL\tE_SoftSpheres\tE_NatCont\tE_ElStat\tE_FENE\t\tE_HarmonicBond\tE_Angle\t\t~TEMP\t<v>*neighfreq/DeltaRcut\n");
+    printf("t\tTraj#\tE_TOTAL\t\tE_POTENTIAL\tE_SoftSpheres\tE_NatCont\tE_ElStat\tE_FENE\t\tE_HarmonicBond\tE_Angle\t\tE_Stack\t\t~TEMP\t<v>*neighfreq/DeltaRcut\n");
     //float Delta=0.;
     int stride=neighfreq;
     
@@ -404,6 +447,17 @@ int main(int argc, char *argv[]){
                 for (int i=itraj*N/ntraj; i<(itraj+1)*N/ntraj; i++)
                     Eang[itraj]+=r_h[i].w;
             }
+
+            StackEnergy<<<BLOCKS,THREADS>>>(r_d,stackP2list);
+            cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+            checkCUDAError("Copy coordinates back for Est");
+
+            float* Est;
+            Est=(float*)calloc(ntraj,sizeof(float));
+            for (int itraj=0; itraj<ntraj; itraj++) {
+                for (int i=itraj*N/ntraj; i<(itraj+1)*N/ntraj; i++)
+                    Est[itraj]+=r_h[i].w;
+            }
             
             SoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nl,sig_d);
             cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -455,11 +509,11 @@ int main(int argc, char *argv[]){
             Etot=(float*)malloc(ntraj*sizeof(float));
             
             for (int itraj=0; itraj<ntraj; itraj++) {
-                Epot[itraj]=(Efene[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.+Ehb[itraj]+Eang[itraj];
+                Epot[itraj]=(Efene[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.+Ehb[itraj]+Eang[itraj]+Est[itraj];
                 Etot[itraj]=Epot[itraj]+Ekin[itraj];
                 printf("%d\t%d\t",t,itraj);
                 printf("%e\t%e\t",Etot[itraj],Epot[itraj]);
-                printf("%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Ehb[itraj],Eang[itraj]);
+                printf("%e\t%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Ehb[itraj],Eang[itraj],Est[itraj]);
                 printf("%f\t%f\n",Ekin[itraj]*ntraj/(N*6.*bd_h.hoz/503.6),sqrt(Ekin[itraj]*ntraj/N)*neighfreq/(ss_h.Rcut-ss_h.MaxSigma*ss_h.CutOffFactor));
             }
             
@@ -491,6 +545,18 @@ int main(int argc, char *argv[]){
 
             AngleEndForce<<<BLOCKS,THREADS>>>(r_d,f_d,angleendlist);
             checkCUDAError("AngleEnd");
+
+            StackP13Force<<<BLOCKS,THREADS>>>(r_d,f_d,stackP13list);
+            checkCUDAError("StackP13");
+
+            StackP2Force<<<BLOCKS,THREADS>>>(r_d,f_d,stackP2list);
+            checkCUDAError("StackP2");
+
+            StackSForce<<<BLOCKS,THREADS>>>(r_d,f_d,stackSlist);
+            checkCUDAError("StackS");
+
+            StackBForce<<<BLOCKS,THREADS>>>(r_d,f_d,stackBlist);
+            checkCUDAError("StackB");
 
             SoftSphereForce<<<BLOCKS,THREADS>>>(r_d,f_d,nl,sig_d);
             checkCUDAError("SoftSphere");
