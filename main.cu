@@ -618,6 +618,15 @@ int main(int argc, char *argv[]){
             StackBForce<<<BLOCKS,THREADS>>>(r_d,f_d,stackBlist);
             checkCUDAError("StackB");
 
+            HydrogenBondInForce<<<BLOCKS,THREADS>>>(r_d,f_d,hydrobondlist_in);
+            checkCUDAError("HydrogenBondIn");
+
+            HydrogenBondMidForce<<<BLOCKS,THREADS>>>(r_d,f_d,hydrobondlist_mid);
+            checkCUDAError("HydrogenBondMid");
+
+            HydrogenBondOutForce<<<BLOCKS,THREADS>>>(r_d,f_d,hydrobondlist_out);
+            checkCUDAError("HydrogenBondOut");
+
             SoftSphereForce<<<BLOCKS,THREADS>>>(r_d,f_d,nl,sig_d);
             checkCUDAError("SoftSphere");
             

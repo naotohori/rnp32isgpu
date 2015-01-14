@@ -617,3 +617,362 @@ __global__ void HydrogenBondEnergy(float4* r, InteractionList<hydrogenbond> list
     r[i].w = 0.5*energy; // To eliminate duplication
 }
 
+
+
+__global__ void HydrogenBondInForce(float4* r, float4* forces, InteractionList<hydrogenbond> list) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i>=list.N) return;
+
+    float4 f=forces[i];
+    int Nhb=list.count_d[i];
+
+    for (int ihb=0; ihb<Nhb; ihb++) {
+        float denom = 1.0f;
+        hydrogenbond hb = list.map_d[ihb*list.N+i];
+
+        float4 r1 = tex1Dfetch(r_t, hb.i1);
+        float4 r2 = tex1Dfetch(r_t, hb.i2);
+        float4 r3 = tex1Dfetch(r_t, hb.i3);
+        float4 r4 = tex1Dfetch(r_t, hb.i4);
+        float4 r5 = tex1Dfetch(r_t, hb.i5);
+        float4 r6 = tex1Dfetch(r_t, hb.i6);
+
+        float4 v12 = r1 - r2;
+        float4 v13 = r1 - r3;
+        float4 v53 = r5 - r3;
+        float4 v42 = r4 - r2;
+        float4 v46 = r4 - r6;
+
+        float d1212 = dot_product(v12,v12);
+        float d1213 = dot_product(v12,v13);
+        float d1313 = dot_product(v13,v13);
+        float d4242 = dot_product(v42,v42);
+        float d1242 = dot_product(v12,v42);
+
+        float a12 = sqrt(d1212);
+        float a13 = sqrt(d1313);
+        float a42 = sqrt(d4242);
+
+        float d1213over1212 = d1213 / d1212;
+        float d1213over1313 = d1213 / d1313;
+        float d1242over1212 = d1242 / d1212;
+        float d1353over1313 = dot_product(v13,v53) / d1313;
+
+        // Distance
+        float d = a12 - hb.l0;
+        denom += hb.kl * d * d;
+        float fact = 2.f * hb.kl * d / a12;
+        float4 ft;
+        ft.x = fact * v12.x;
+        ft.y = fact * v12.y;
+        ft.z = fact * v12.z;
+
+        // Angle of 3-1=2
+        float cos_theta = d1213 / (a13 * a12);
+        d = acos(cos_theta) - hb.theta10;
+        denom += hb.ktheta1 * d * d;
+        fact = -2.f * hb.ktheta1 * d / sqrt(d1313 * d1212 - d1213 * d1213);
+        ft.x += fact * (v12.x - d1213over1313 * v13.x + v13.x - d1213over1212 * v12.x);
+        ft.y += fact * (v12.y - d1213over1313 * v13.y + v13.y - d1213over1212 * v12.y);
+        ft.z += fact * (v12.z - d1213over1313 * v13.z + v13.z - d1213over1212 * v12.z);
+
+        // Angle of 1=2-4
+        cos_theta = d1242 / (a12 * a42);
+        d = acos(cos_theta) - hb.theta20;
+        denom += hb.ktheta2 * d * d;
+        fact = -2.f * hb.ktheta2 * d / sqrt(d1212 * d4242 - d1242 * d1242);
+        ft.x += fact * (v42.x - d1242over1212 * v12.x);
+        ft.y += fact * (v42.y - d1242over1212 * v12.y);
+        ft.z += fact * (v42.z - d1242over1212 * v12.z);
+
+        // Dihedral of 4-2=1-3
+        float4 c4212 = cross_product(v42, v12);
+        float4 c1213 = cross_product(v12, v13);
+        d = atan2(dot_product(v42,c1213) * a12, dot_product(c4212,c1213)) - hb.psi0;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi * d * d;
+        fact = 2.f * hb.kpsi * d * a12;
+        float c4212_abs2 = dot_product(c4212,c4212);
+        float c1213_abs2 = dot_product(c1213,c1213);
+        ft.x += (1.f - d1213over1212) * fact / c1213_abs2 * c1213.x
+                     - d1242over1212  * fact / c4212_abs2 * c4212.x; 
+        ft.y += (1.f - d1213over1212) * fact / c1213_abs2 * c1213.y
+                     - d1242over1212  * fact / c4212_abs2 * c4212.y; 
+        ft.z += (1.f - d1213over1212) * fact / c1213_abs2 * c1213.z
+                     - d1242over1212  * fact / c4212_abs2 * c4212.z; 
+
+        // Dihedral of 5-3-1=2
+        float4 m = cross_product(v53, v13);
+        float4 n;
+        n.x = -c1213.x;
+        n.y = -c1213.y;
+        n.z = -c1213.z;
+        float dmm = dot_product(m,m);
+        float dnn = c1213_abs2;
+        d = atan2(dot_product(v53,n) * a13, dot_product(m,n)) - hb.psi10;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi1 * d * d;
+        fact = 2.f * hb.kpsi1 * d * a13;
+        ft.x += (1.f - d1213over1313) * fact / dnn * n.x
+                     - d1353over1313  * fact / dmm * m.x;
+        ft.y += (1.f - d1213over1313) * fact / dnn * n.y
+                     - d1353over1313  * fact / dmm * m.y;
+        ft.z += (1.f - d1213over1313) * fact / dnn * n.z
+                     - d1353over1313  * fact / dmm * m.z;
+
+        // Dihedral of 1=2-4-6
+        m.x = -c4212.x;
+        m.y = -c4212.y;
+        m.z = -c4212.z;
+        n = cross_product(v42,v46);
+        dmm = dot_product(m,m);
+        d = atan2(dot_product(v12,n) * a42, dot_product(m,n))
+            - hb.psi20;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi2 * d * d;
+        fact = 2.f * hb.kpsi2 * d * a42;
+        ft.x += fact / dmm * m.x;
+        ft.y += fact / dmm * m.y;
+        ft.z += fact / dmm * m.z;
+
+
+        fact = hb.U0 / (denom * denom);
+
+        f.x += fact * ft.x;
+        f.y += fact * ft.y;
+        f.z += fact * ft.z;
+    }
+    forces[i]=f;
+}
+
+__global__ void HydrogenBondMidForce(float4* r, float4* forces, InteractionList<hydrogenbond> list) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i>=list.N) return;
+
+    float4 f=forces[i];
+    int Nhb=list.count_d[i];
+
+    for (int ihb=0; ihb<Nhb; ihb++) {
+        float denom = 1.0f;
+        hydrogenbond hb = list.map_d[ihb*list.N+i];
+
+        float4 r1 = tex1Dfetch(r_t, hb.i1);
+        float4 r2 = tex1Dfetch(r_t, hb.i2);
+        float4 r3 = tex1Dfetch(r_t, hb.i3);
+        float4 r4 = tex1Dfetch(r_t, hb.i4);
+        float4 r5 = tex1Dfetch(r_t, hb.i5);
+        float4 r6 = tex1Dfetch(r_t, hb.i6);
+
+        float4 v12 = r1 - r2;
+        float4 v13 = r1 - r3;
+        float4 v53 = r5 - r3;
+        float4 v42 = r4 - r2;
+        float4 v46 = r4 - r6;
+
+        float d1212 = dot_product(v12,v12);
+        float d1213 = dot_product(v12,v13);
+        float d1313 = dot_product(v13,v13);
+        float d4242 = dot_product(v42,v42);
+        float d1242 = dot_product(v12,v42);
+        float d1353 = dot_product(v13,v53);
+
+        float a12 = sqrt(d1212);
+        float a13 = sqrt(d1313);
+        float a42 = sqrt(d4242);
+
+        float d1213over1313 = d1213 / d1313;
+        float d1353over1313 = d1353 / d1313;
+
+        // Distance
+        float d = a12 - hb.l0;
+        denom += hb.kl * d * d;
+
+        // Angle of 3-1=2
+        float cos_theta = d1213 / (a13 * a12);
+        d = acos(cos_theta) - hb.theta10;
+        denom += hb.ktheta1 * d * d;
+        float fact = 2.f * hb.ktheta1 * d / sqrt(d1313 * d1212 - d1213 * d1213);
+        float4 ft;
+        ft.x = fact * (v12.x - d1213over1313 * v13.x);
+        ft.y = fact * (v12.y - d1213over1313 * v13.y);
+        ft.z = fact * (v12.z - d1213over1313 * v13.z);
+
+        // Angle of 1=2-4
+        cos_theta = d1242 / (a12 * a42);
+        d = acos(cos_theta) - hb.theta20;
+        denom += hb.ktheta2 * d * d;
+
+        // Dihedral of 4-2=1-3
+        float4 c4212 = cross_product(v42, v12);
+        float4 c1213 = cross_product(v12, v13);
+        d = atan2(dot_product(v42,c1213) * a12,
+                  dot_product(c4212,c1213))
+            - hb.psi0;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi * d * d;
+        fact = -2.f * hb.kpsi * d * a12;
+        float c4212_abs2 = dot_product(c4212,c4212);
+        float c1213_abs2 = dot_product(c1213,c1213);
+        ft.x += fact / c1213_abs2 * c1213.x;
+        ft.y += fact / c1213_abs2 * c1213.y;
+        ft.z += fact / c1213_abs2 * c1213.z;
+
+        // Dihedral of 5-3-1=2
+        float4 m = cross_product(v53, v13);
+        float4 n;
+        n.x = -c1213.x;
+        n.y = -c1213.y;
+        n.z = -c1213.z;
+        float dmm = dot_product(m,m);
+        float dnn = c1213_abs2;
+        d = atan2(dot_product(v53,n) * a13, dot_product(m,n)) - hb.psi10;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi1 * d * d;
+        fact = 2.f * hb.kpsi1 * d * a13;
+        ft.x += (-1.f + d1353over1313) * fact / dmm * m.x
+                     +  d1213over1313  * fact / dnn * n.x;
+        ft.y += (-1.f + d1353over1313) * fact / dmm * m.y
+                     +  d1213over1313  * fact / dnn * n.y;
+        ft.z += (-1.f + d1353over1313) * fact / dmm * m.z
+                     +  d1213over1313  * fact / dnn * n.z;
+
+        // Dihedral of 1=2-4-6
+        m.x = -c4212.x;
+        m.y = -c4212.y;
+        m.z = -c4212.z;
+        n = cross_product(v42,v46);
+        d = atan2(dot_product(v12,n) * sqrt(dot_product(v42,v42)),
+                  dot_product(m,n))
+            - hb.psi20;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi2 * d * d;
+
+        fact = hb.U0 / (denom * denom);
+
+        f.x += fact * ft.x;
+        f.y += fact * ft.y;
+        f.z += fact * ft.z;
+    }
+    forces[i]=f;
+}
+
+__global__ void HydrogenBondOutForce(float4* r, float4* forces, InteractionList<hydrogenbond> list) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i>=list.N) return;
+
+    float4 f=forces[i];
+    int Nhb=list.count_d[i];
+
+    for (int ihb=0; ihb<Nhb; ihb++) {
+        float denom = 1.0f;
+        hydrogenbond hb = list.map_d[ihb*list.N+i];
+
+        float4 r1 = tex1Dfetch(r_t, hb.i1);
+        float4 r2 = tex1Dfetch(r_t, hb.i2);
+        float4 r3 = tex1Dfetch(r_t, hb.i3);
+        float4 r4 = tex1Dfetch(r_t, hb.i4);
+        float4 r5 = tex1Dfetch(r_t, hb.i5);
+        float4 r6 = tex1Dfetch(r_t, hb.i6);
+
+        float4 v12 = r1 - r2;
+        float4 v13 = r1 - r3;
+        float4 v53 = r5 - r3;
+        float4 v42 = r4 - r2;
+        float4 v46 = r4 - r6;
+
+        float a12 = sqrt(dot_product(v12,v12));
+        float a13 = sqrt(dot_product(v13,v13));
+
+        // Distance
+        float d = a12 - hb.l0;
+        denom += hb.kl * d * d;
+
+        // Angle of 3-1=2
+        float cos_theta = dot_product(v12,v13) / (a13 * a12);
+        d = acos(cos_theta) - hb.theta10;
+        denom += hb.ktheta1 * d * d;
+
+        // Angle of 1=2-4
+        cos_theta = dot_product(v12,v42) / (a12 * sqrt(dot_product(v42,v42)));
+        d = acos(cos_theta) - hb.theta20;
+        denom += hb.ktheta2 * d * d;
+
+        // Dihedral of 4-2=1-3
+        float4 c4212 = cross_product(v42, v12);
+        float4 c1213 = cross_product(v12, v13);
+        d = atan2(dot_product(v42,c1213) * a12, dot_product(c4212,c1213)) - hb.psi0;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi * d * d;
+
+        // Dihedral of 5-3-1=2
+        float4 m = cross_product(v53, v13);
+        float4 n;
+        n.x = -c1213.x;
+        n.y = -c1213.y;
+        n.z = -c1213.z;
+        float dmm = dot_product(m,m);
+        d = atan2(dot_product(v53,n) * a13, dot_product(m,n)) - hb.psi10;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi1 * d * d;
+        float fact = 2.f * hb.kpsi1 * d * a13;
+        float4 ft;
+        ft.x = fact / dmm * m.x;
+        ft.y = fact / dmm * m.y;
+        ft.z = fact / dmm * m.z;
+
+        // Dihedral of 1=2-4-6
+        m.x = -c4212.x;
+        m.y = -c4212.y;
+        m.z = -c4212.z;
+        n = cross_product(v42,v46);
+        d = atan2(dot_product(v12,n) * sqrt(dot_product(v42,v42)),
+                  dot_product(m,n))
+            - hb.psi20;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi2 * d * d;
+
+
+        fact = hb.U0 / (denom * denom);
+
+        f.x += fact * ft.x;
+        f.y += fact * ft.y;
+        f.z += fact * ft.z;
+    }
+    forces[i]=f;
+}
