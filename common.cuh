@@ -61,8 +61,30 @@ struct stack {
     float kphi1;
     float kphi2;
     float l0;
-    float phi01;
-    float phi02;
+    float phi10;
+    float phi20;
+};
+
+struct hydrogenbond {
+    int i1;          // Definition of particle ID in hydrogenbond
+    int i3;          //
+    int i5;          //  Nucleotide A    Nucleotide B
+    int i2;          //    (5,3,1)          (2,4,6)
+    int i4;          //                                !           
+    int i6;          //      5                         !           
+    float U0;        //       \                        !
+    float kl;        //        3 -- 1 === 2 -- 4       !           
+    float ktheta1;   //                         \      !           
+    float ktheta2;   //                          6     !
+    float kpsi;
+    float kpsi1;
+    float kpsi2;
+    float l0;
+    float theta10;
+    float theta20;
+    float psi0;
+    float psi10;
+    float psi20;
 };
 
 struct __align__(16) nc { //For native contact map

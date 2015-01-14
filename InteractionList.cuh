@@ -281,7 +281,7 @@ public:
     }
     
     void Append(int i_in, int iP1, int iS1, int iB1, int iP2, int iS2, int iB2, int iP3,
-                float U0, float kl, float kphi1, float kphi2, float l0, float phi01, float phi02,
+                float U0, float kl, float kphi1, float kphi2, float l0, float phi10, float phi20,
                 std::string msg, int N_in, int ntraj) {
 
         stack st;
@@ -297,11 +297,59 @@ public:
         st.kphi1 = kphi1;
         st.kphi2 = kphi2;
         st.l0 = l0;
-        st.phi01 = phi01;
-        st.phi02 = phi02;
+        st.phi10 = phi10;
+        st.phi20 = phi20;
 
         for (int itraj=0; itraj<ntraj; itraj++) {
             map_h[N*count_h[i_in]+i_in] = st;
+            count_h[i_in]++;
+                
+            CheckNmaxHost(i_in,msg);
+
+            i_in += N_in;
+        }
+    }
+};
+
+
+class InteractionListHydrogenBond: public InteractionList<hydrogenbond> {
+
+public:
+    InteractionListHydrogenBond(int N_in, int Nmax_in, std::string msg, int ntraj) {
+        N=N_in*ntraj;
+        Nmax=Nmax_in;
+        AllocateOnDevice(msg);
+        AllocateOnHost();
+    }
+    
+    void Append(int i_in, int i1, int i3, int i5, int i2, int i4, int i6, 
+                float U0, float kl, float ktheta1, float ktheta2, float kpsi, float kpsi1, float kpsi2, 
+                float l0, float theta10, float theta20, float psi0, float psi10, float psi20,
+                std::string msg, int N_in, int ntraj) {
+
+        hydrogenbond hb;
+        hb.i1 = i1;
+        hb.i3 = i3;
+        hb.i5 = i5;
+        hb.i2 = i2;
+        hb.i4 = i4;
+        hb.i6 = i6;
+        hb.U0 = U0;
+        hb.kl = kl;
+        hb.ktheta1 = ktheta1;
+        hb.ktheta2 = ktheta2;
+        hb.kpsi  = kpsi;
+        hb.kpsi1 = kpsi1;
+        hb.kpsi2 = kpsi2;
+        hb.l0 = l0;
+        hb.theta10 = theta10;
+        hb.theta20 = theta20;
+        hb.psi0  = psi0;
+        hb.psi10 = psi10;
+        hb.psi20 = psi20;
+
+        for (int itraj=0; itraj<ntraj; itraj++) {
+            map_h[N*count_h[i_in]+i_in] = hb;
             count_h[i_in]++;
                 
             CheckNmaxHost(i_in,msg);

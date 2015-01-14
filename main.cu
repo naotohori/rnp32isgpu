@@ -140,11 +140,11 @@ int main(int argc, char *argv[]){
     InteractionListBond bondlist(ind,N/ntraj,MaxBondsPerAtom,Nb,"covalent bond",ntraj);
 
 // Read harmonicbonds and build map, allocate and copy to device
-    int Nhb; //Number of bonds
+    int Nharb; //Number of bonds
     fscanf(ind,"%s",comments);
-    fscanf(ind,"%d",&Nhb);
-    printf("%d\n", Nhb);
-    InteractionListBond harmonicbondlist(ind,N/ntraj,MaxBondsPerAtom,Nhb,"covalent bond (harmonic)",ntraj);
+    fscanf(ind,"%d",&Nharb);
+    printf("%d\n", Nharb);
+    InteractionListBond harmonicbondlist(ind,N/ntraj,MaxBondsPerAtom,Nharb,"covalent bond (harmonic)",ntraj);
 
 // Read angles and build map, allocate and copy to device
     int Nang; //Number of angles
@@ -169,9 +169,8 @@ int main(int argc, char *argv[]){
 
 // Read stacks and build map, allocate and copy to device
     int Nst; //Number of stacks
-    fscanf(ind,"%s",comments);
-    fscanf(ind,"%d",&Nst);
-    printf("%d\n", Nst);
+    fscanf(ind,"%s %d",comments, &Nst);
+    printf("Stack %d\n", Nst);
     InteractionListStack stackP13list(N/ntraj, "stack", ntraj);  // For P1 and P3
     InteractionListStack stackP2list(N/ntraj, "stack", ntraj);   // For P2
     InteractionListStack stackSlist(N/ntraj, "stack", ntraj);    // For S1 and S2
@@ -179,27 +178,27 @@ int main(int argc, char *argv[]){
     for (int ist=0; ist<Nst; ist++) {
         int iP1, iP2, iP3, iS1, iS2, iB1, iB2;
         float U0, kl, kphi1, kphi2;
-        float l0, phi01, phi02;
-        if (fscanf(ind, "%d %d %d %d %d %d %d %f %f %f %f %f %f %f",
-                        &iP1,&iS1,&iB1,&iP2,&iS2,&iB2,&iP3, 
-                        &U0,&kl,&kphi1,&kphi2,&l0,&phi01,&phi02)==EOF)
+        float l0, phi10, phi20;
+        if (fscanf(ind, "%s %d %d %d %d %d %d %d %f %f %f %f %f %f %f",
+                        comments, &iP1,&iS1,&iB1,&iP2,&iS2,&iB2,&iP3, 
+                        &U0,&kl,&kphi1,&kphi2,&l0,&phi10,&phi20)==EOF)
         {
             printf("Premature end of file at %d/%d stack read\n", ist, Nst);
         }
         stackP13list.Append(iP1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
-                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi1, kphi2, l0, phi10, phi20, "stack", N/ntraj, ntraj);
         stackP13list.Append(iP3, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
-                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi2, kphi1, l0, phi20, phi10, "stack", N/ntraj, ntraj);
         stackP2list.Append(iP2, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
-                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi1, kphi2, l0, phi10, phi20, "stack", N/ntraj, ntraj);
         stackSlist.Append(iS1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
-                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi1, kphi2, l0, phi10, phi20, "stack", N/ntraj, ntraj);
         stackSlist.Append(iS2, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
-                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi2, kphi1, l0, phi20, phi10, "stack", N/ntraj, ntraj);
         stackBlist.Append(iB1, iP1, iS1, iB1, iP2, iS2, iB2, iP3,
-                            U0, kl, kphi1, kphi2, l0, phi01, phi02, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi1, kphi2, l0, phi10, phi20, "stack", N/ntraj, ntraj);
         stackBlist.Append(iB2, iP3, iS2, iB2, iP2, iS1, iB1, iP1,
-                            U0, kl, kphi2, kphi1, l0, phi02, phi01, "stack", N/ntraj, ntraj);
+                            U0, kl, kphi2, kphi1, l0, phi20, phi10, "stack", N/ntraj, ntraj);
     }
     stackP13list.CopyToDevice("stack");
     stackP2list.CopyToDevice("stack");
@@ -209,6 +208,57 @@ int main(int argc, char *argv[]){
     stackP2list.FreeOnHost();
     stackSlist.FreeOnHost();
     stackBlist.FreeOnHost();
+
+// Read hydrogen bonds
+    int Nhb; // Number of hydrogen bonds
+    fscanf(ind,"%s %d",comments, &Nhb);
+    printf("HydrogenBond %d\n", Nhb);
+    InteractionListHydrogenBond hydrobondlist_in(N/ntraj, 3,"hydrogen bond", ntraj); // For particles 1 and 2
+    InteractionListHydrogenBond hydrobondlist_mid(N/ntraj, 4,"hydrogen bond", ntraj); // For particles 3 and 4
+    InteractionListHydrogenBond hydrobondlist_out(N/ntraj, 4,"hydrogen bond", ntraj); // For particles 5 and 6
+    for (int ihb=0; ihb<Nhb; ihb++) {
+        int i1, i2, i3, i4, i5, i6;
+        float U0, kl, ktheta1, ktheta2, kpsi, kpsi1, kpsi2;
+        float l0, theta10, theta20, psi0, psi10, psi20;
+        if (fscanf(ind, "%s %d %d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f",
+                        comments, &i1,&i3,&i5,&i2,&i4,&i6,
+                        &U0,&kl,&ktheta1,&ktheta2,&kpsi,&kpsi1,&kpsi2,
+                        &l0,&theta10,&theta20,&psi0,&psi10,&psi20)==EOF)
+        {
+            printf("Premature end of file at %d/%d hydrogen bond read\n", ihb, Nhb);
+        }
+        hydrobondlist_in.Append(i1, i1,i3,i5,i2,i4,i6, 
+                                U0, kl, ktheta1, ktheta2, kpsi, kpsi1, kpsi2,
+                                l0, theta10, theta20, psi0, psi10, psi20,
+                                "hydrogen bond", N/ntraj, ntraj);
+        hydrobondlist_in.Append(i2, i2,i4,i6,i1,i3,i5, 
+                                U0, kl, ktheta2, ktheta1, kpsi, kpsi2, kpsi1,
+                                l0, theta20, theta10, psi0, psi20, psi10,
+                                "hydrogen bond", N/ntraj, ntraj);
+        hydrobondlist_mid.Append(i3, i1,i3,i5,i2,i4,i6, 
+                                U0, kl, ktheta1, ktheta2, kpsi, kpsi1, kpsi2,
+                                l0, theta10, theta20, psi0, psi10, psi20,
+                                "hydrogen bond", N/ntraj, ntraj);
+        hydrobondlist_mid.Append(i4, i2,i4,i6,i1,i3,i5, 
+                                U0, kl, ktheta2, ktheta1, kpsi, kpsi2, kpsi1,
+                                l0, theta20, theta10, psi0, psi20, psi10,
+                                "hydrogen bond", N/ntraj, ntraj);
+        hydrobondlist_out.Append(i5, i1,i3,i5,i2,i4,i6, 
+                                U0, kl, ktheta1, ktheta2, kpsi, kpsi1, kpsi2,
+                                l0, theta10, theta20, psi0, psi10, psi20,
+                                "hydrogen bond", N/ntraj, ntraj);
+        hydrobondlist_out.Append(i6, i2,i4,i6,i1,i3,i5, 
+                                U0, kl, ktheta2, ktheta1, kpsi, kpsi2, kpsi1,
+                                l0, theta20, theta10, psi0, psi20, psi10,
+                                "hydrogen bond", N/ntraj, ntraj);
+    }
+    hydrobondlist_in.CopyToDevice("hydrogen bond");
+    hydrobondlist_mid.CopyToDevice("hydrogen bond");
+    hydrobondlist_out.CopyToDevice("hydrogen bond");
+    hydrobondlist_in.FreeOnHost();
+    hydrobondlist_mid.FreeOnHost();
+    hydrobondlist_out.FreeOnHost();
+
 
 // Read native contacts and build map for initial structure, allocate and copy to device
     int Nnc;  //Number of native contacts (initial)
@@ -250,17 +300,15 @@ int main(int argc, char *argv[]){
     InteractionListSB SaltBridgeList(ind,N/ntraj,MaxNeighbors,Nsb,"electrostatic interaction",ntraj);
     
 // Read charges
-    printf("Reading charges\n");
     int Ncharge; //Number of charged particles
-    fscanf(ind,"%s",comments);
-    fscanf(ind,"%d",&Ncharge);
-    printf("%d\n", Ncharge);
+    fscanf(ind,"%s %d",comments, &Ncharge);
+    printf("#Charge %d\n", Ncharge);
     int *charge_i;
     float *charge_q;
     charge_i = (int *)malloc(Ncharge*sizeof(int));
     charge_q = (float *)malloc(Ncharge*sizeof(float));
     for (int i=0; i<Ncharge; i++) {
-        fscanf(ind,"%d %f",&charge_i[i],&charge_q[i]);
+        fscanf(ind,"%s %d %f", comments, &charge_i[i],&charge_q[i]);
     }
     for (int i=0; i<Ncharge; i++) {
         printf("%d %d %f\n", i,charge_i[i],charge_q[i]);
@@ -373,7 +421,7 @@ int main(int argc, char *argv[]){
 
 
 //Production run
-    printf("t\tTraj#\tE_TOTAL\t\tE_POTENTIAL\tE_SoftSpheres\tE_NatCont\tE_ElStat\tE_FENE\t\tE_HarmonicBond\tE_Angle\t\tE_Stack\t\t~TEMP\t<v>*neighfreq/DeltaRcut\n");
+    printf("t\tTraj#\tE_TOTAL\t\tE_POTENTIAL\tE_SoftSpheres\tE_NatCont\tE_ElStat\tE_FENE\t\tE_HarmonicBond\tE_Angle\t\tE_Stack\t\tE_HydroBond\t~TEMP\t<v>*neighfreq/DeltaRcut\n");
     //float Delta=0.;
     int stride=neighfreq;
     
@@ -429,13 +477,13 @@ int main(int argc, char *argv[]){
             
             HarmonicBondEnergy<<<BLOCKS,THREADS>>>(r_d,harmonicbondlist);
             cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
-            checkCUDAError("Copy coordinates back for Ehb");
+            checkCUDAError("Copy coordinates back for Eharb");
             
-            float* Ehb;
-            Ehb=(float*)calloc(ntraj,sizeof(float));
+            float* Eharb;
+            Eharb=(float*)calloc(ntraj,sizeof(float));
             for (int itraj=0; itraj<ntraj; itraj++) {
                 for (int i=itraj*N/ntraj; i<(itraj+1)*N/ntraj; i++)
-                    Ehb[itraj]+=r_h[i].w;
+                    Eharb[itraj]+=r_h[i].w;
             }
                         
             AngleEnergy<<<BLOCKS,THREADS>>>(r_d,anglevertexlist);
@@ -458,6 +506,17 @@ int main(int argc, char *argv[]){
             for (int itraj=0; itraj<ntraj; itraj++) {
                 for (int i=itraj*N/ntraj; i<(itraj+1)*N/ntraj; i++)
                     Est[itraj]+=r_h[i].w;
+            }
+            
+            HydrogenBondEnergy<<<BLOCKS,THREADS>>>(r_d,hydrobondlist_in);
+            cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+            checkCUDAError("Copy coordinates back for Ehb");
+
+            float* Ehb;
+            Ehb=(float*)calloc(ntraj,sizeof(float));
+            for (int itraj=0; itraj<ntraj; itraj++) {
+                for (int i=itraj*N/ntraj; i<(itraj+1)*N/ntraj; i++)
+                    Ehb[itraj]+=r_h[i].w;
             }
             
             SoftSphereEnergy<<<BLOCKS,THREADS>>>(r_d,nl,sig_d);
@@ -510,11 +569,11 @@ int main(int argc, char *argv[]){
             Etot=(float*)malloc(ntraj*sizeof(float));
             
             for (int itraj=0; itraj<ntraj; itraj++) {
-                Epot[itraj]=(Efene[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.+Ehb[itraj]+Eang[itraj]+Est[itraj];
+                Epot[itraj]=(Efene[itraj]+Ess[itraj]+Enat[itraj]+Eel[itraj])/2.+Eharb[itraj]+Eang[itraj]+Est[itraj]+Ehb[itraj];
                 Etot[itraj]=Epot[itraj]+Ekin[itraj];
                 printf("%d\t%d\t",t,itraj);
                 printf("%e\t%e\t",Etot[itraj],Epot[itraj]);
-                printf("%e\t%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Ehb[itraj],Eang[itraj],Est[itraj]);
+                printf("%e\t%e\t%e\t%e\t%e\t%e\t%e\t%e\t",Ess[itraj]/2.,Enat[itraj]/2.,Eel[itraj]/2.,Efene[itraj]/2.,Eharb[itraj],Eang[itraj],Est[itraj],Ehb[itraj]);
                 printf("%f\t%f\n",Ekin[itraj]*ntraj/(N*6.*bd_h.hoz/503.6),sqrt(Ekin[itraj]*ntraj/N)*neighfreq/(ss_h.Rcut-ss_h.MaxSigma*ss_h.CutOffFactor));
             }
             

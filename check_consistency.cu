@@ -34,7 +34,6 @@
 
         AngleEndForce<<<BLOCKS,THREADS>>>(r_d,f_d,angleendlist);
         checkCUDAError("AngleEnd");
-        **/
 
         StackP13Force<<<BLOCKS,THREADS>>>(r_d,f_d,stackP13list);
         checkCUDAError("StackP13");
@@ -47,6 +46,7 @@
 
         StackBForce<<<BLOCKS,THREADS>>>(r_d,f_d,stackBlist);
         checkCUDAError("StackB");
+        **/
         
         /**
         SoftSphereForce<<<BLOCKS,THREADS>>>(r_d,f_d,nl,sig_d);
@@ -89,9 +89,10 @@
     
                 // Energy (plus)
                 double Efene=0.0;
-                double Ehb=0.0;
+                double Eharb=0.0;
                 double Eang=0.0;
                 double Est=0.0;
+                double Ehb=0.0;
                 double Ess=0.0;
                 double Enat=0.0;
                 double Eel=0.0;
@@ -105,10 +106,10 @@
 
                 HarmonicBondEnergy<<<BLOCKS,THREADS>>>(r_d,harmonicbondlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
-                checkCUDAError("Copy coordinates back for Ehb");
+                checkCUDAError("Copy coordinates back for Eharb");
                        
                 for (int i=0; i<N; i++)
-                    Ehb+=r_h[i].w;
+                    Eharb+=r_h[i].w;
                         
                 AngleEnergy<<<BLOCKS,THREADS>>>(r_d,anglevertexlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -117,7 +118,6 @@
                 for (int i=0; i<N; i++) {
                     Eang+=(double)r_h[i].w;
                 }
-                **/
 
                 StackEnergy<<<BLOCKS,THREADS>>>(r_d,stackP2list);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -125,6 +125,15 @@
                        
                 for (int i=0; i<N; i++) {
                     Est+=(double)r_h[i].w;
+                }
+                **/
+
+                HydrogenBondEnergy<<<BLOCKS,THREADS>>>(r_d,hydrobondlist_in);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Ehb");
+                       
+                for (int i=0; i<N; i++) {
+                    Ehb+=(double)r_h[i].w;
                 }
 
                 /**
@@ -157,7 +166,7 @@
                     Eel+=r_h[i].w;
                 **/
     
-                double Epot_plus=(Efene+Ess+Enat+Eel)/2. + Ehb + Eang + Est;
+                double Epot_plus=(Efene+Ess+Enat+Eel)/2. + Eharb + Eang + Est + Ehb;
             
                 if (idim==0) r_h[imove].x -= 2.0 * small;
                 if (idim==1) r_h[imove].y -= 2.0 * small;
@@ -171,9 +180,10 @@
     
                 // Energy (minus)
                 Efene=0.0;
-                Ehb=0.0;
+                Eharb=0.0;
                 Eang=0.0;
                 Est=0.0;
+                Ehb=0.0;
                 Ess=0.0;
                 Enat=0.0;
                 Eel=0.0;
@@ -187,10 +197,10 @@
 
                 HarmonicBondEnergy<<<BLOCKS,THREADS>>>(r_d,harmonicbondlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
-                checkCUDAError("Copy coordinates back for Ehb");
+                checkCUDAError("Copy coordinates back for Eharb");
                        
                 for (int i=0; i<N; i++)
-                    Ehb+=r_h[i].w;
+                    Eharb+=r_h[i].w;
                         
                 AngleEnergy<<<BLOCKS,THREADS>>>(r_d,anglevertexlist);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -199,7 +209,6 @@
                 for (int i=0; i<N; i++) {
                     Eang+=(double)r_h[i].w;
                 }
-                **/
 
                 StackEnergy<<<BLOCKS,THREADS>>>(r_d,stackP2list);
                 cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
@@ -207,6 +216,15 @@
                        
                 for (int i=0; i<N; i++) {
                     Est+=(double)r_h[i].w;
+                }
+                **/
+
+                HydrogenBondEnergy<<<BLOCKS,THREADS>>>(r_d,hydrobondlist_in);
+                cudaMemcpy(r_h, r_d, N*sizeof(float4), cudaMemcpyDeviceToHost);
+                checkCUDAError("Copy coordinates back for Ehb");
+                       
+                for (int i=0; i<N; i++) {
+                    Ehb+=(double)r_h[i].w;
                 }
 
                 /**
@@ -240,7 +258,7 @@
                     Eel+=r_h[i].w;
                 **/
     
-                double Epot_minus=(Efene+Ess+Enat+Eel)/2. + Ehb + Eang + Est;
+                double Epot_minus=(Efene+Ess+Enat+Eel)/2. + Eharb + Eang + Est + Ehb;
     
                 // Numerical derivative
                 double ff = - (Epot_plus - Epot_minus) * 0.5 / small;

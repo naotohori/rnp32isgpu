@@ -25,23 +25,15 @@ DTRNA_angle_k_SPS = 20.0
 DTRNA_st_k_l = 1.4
 DTRNA_st_k_phi = 4.0
 
-DTRNA_st_param = { #       h       s         Tm
-                 "AA":  (4.348,  -0.319,   298.9),
-                 "AC":  (4.311,  -0.319,   298.9),
-                 "AG":  (5.116,   5.301,   341.2),
-                 "AU":  (4.311,  -0.319,   298.9),
-                 "CA":  (4.287,  -0.319,   298.9),
-                 "CC":  (4.015,  -1.567,   285.8),
-                 "CG":  (4.602,   0.774,   315.5),
-                 "CU":  (3.995,  -1.567,   285.8),
-                 "GA":  (5.079,   5.301,   341.2),
-                 "GC":  (5.075,   4.370,   343.2),
-                 "GG":  (5.555,   7.346,   366.3),
-                 "GU":  (4.977,   2.924,   338.2),
-                 "UA":  (4.287,  -0.319,   298.9),
-                 "UC":  (3.992,  -1.567,   285.8),
-                 "UG":  (5.032,   2.924,   338.2),
-                 "UU":  (3.370,  -3.563,   251.6)  }
+DTRNA_st_param = { #       h       s         Tm              h       s         Tm
+                 "AA":  (4.348,  -0.319,   298.9), "AC":  (4.311,  -0.319,   298.9),
+                 "AG":  (5.116,   5.301,   341.2), "AU":  (4.311,  -0.319,   298.9),
+                 "CA":  (4.287,  -0.319,   298.9), "CC":  (4.015,  -1.567,   285.8),
+                 "CG":  (4.602,   0.774,   315.5), "CU":  (3.995,  -1.567,   285.8),
+                 "GA":  (5.079,   5.301,   341.2), "GC":  (5.075,   4.370,   343.2),
+                 "GG":  (5.555,   7.346,   366.3), "GU":  (4.977,   2.924,   338.2),
+                 "UA":  (4.287,  -0.319,   298.9), "UC":  (3.992,  -1.567,   285.8),
+                 "UG":  (5.032,   2.924,   338.2), "UU":  (3.370,  -3.563,   251.6)  }
 
 DTRNA_st_dist = {"AA":  4.1806530 , "AC":  3.8260185 , "AG":  4.4255305 , "AU":  3.8260185 ,
                  "CA":  4.7010580 , "CC":  4.2500910 , "CG":  4.9790760 , "CU":  4.2273615 ,
@@ -50,6 +42,25 @@ DTRNA_st_dist = {"AA":  4.1806530 , "AC":  3.8260185 , "AG":  4.4255305 , "AU": 
 
 DTRNA_st_dih_PSPS = -148.215 / 180.0 * math.pi
 DTRNA_st_dih_SPSP = 175.975 / 180.0 * math.pi 
+
+DTRNA_hb_U0 = -2.43
+DTRNA_hb_k_l = 5.0
+DTRNA_hb_k_angl = 1.5
+DTRNA_hb_k_dih = 0.15
+DTRNA_hb_dist = {"A-U":  5.8815, "U-A":5.8815, 
+                 "G-C":  5.6550, "C-G":5.6550 }
+DTRNA_hb_angl = {"SA-U": 156.320 / 180.0 * math.pi,
+                 "SU-A": 143.910 / 180.0 * math.pi,
+                 "SG-C": 161.746 / 180.0 * math.pi,
+                 "SC-G": 143.306 / 180.0 * math.pi }
+DTRNA_hb_dih  = {"SA-US":  71.958 / 180.0 * math.pi,
+                 "SU-AS":  71.958 / 180.0 * math.pi,
+                 "SG-CS":  79.653 / 180.0 * math.pi,
+                 "SC-GS":  79.653 / 180.0 * math.pi,
+                 "PSA-U":  54.689 / 180.0 * math.pi,
+                 "PSU-A":  67.305 / 180.0 * math.pi,
+                 "PSG-C":  43.654 / 180.0 * math.pi,
+                 "PSC-G":  69.752 / 180.0 * math.pi }
 
 NN = ["AA", "AC", "AG", "AU", "CA", "CC", "CG", "CU",
       "GA", "GC", "GG", "GU", "UA", "UC", "UG", "UU"]
@@ -68,8 +79,8 @@ for n in NN:
 # PDBname2=sys.argv[2]
 # PDBname=sys.argv[1]
 
-if len(sys.argv)<2:
-    print "Usage: structure.pdb inputfile.sopscgpu"
+if len(sys.argv) not in (3,4):
+    print "Usage: structure.pdb inputfile.sopscgpu [hydrogenbond.dat (required for RNA)]"
     exit(1)
 outputname=sys.argv[2]
 PDBname=sys.argv[1]
@@ -77,6 +88,9 @@ PDBname=sys.argv[1]
 print "PDB 1 ",PDBname
 #print "PDB 2 ",PDBname2
 print "SOP-SC GPU input file ", outputname
+if len(sys.argv) == 4:
+    hbdatname = sys.argv[3]
+    print "Hydrogen Bond input file ",hbdatname
 
 #Protein residue names
 resnames=["GLY", "ALA", "VAL", "LEU", "ILE", "MET", "PHE", "PRO", "SER", "THR", "ASN", "GLN", "TYR", "TRP", "ASP", "GLU", "HSE", "HSD", "HIS", "LYS", "ARG", "CYS"]
@@ -307,7 +321,7 @@ Nch=len(terres); #Number of protein chains
 Nchr=len(rterres); #Number of RNA chains
 Nb=2*Naa-Nch; #Number of bonds in SOP-SC. Each residue has two bonds, except for Nch terminal residues
 #Nb=Naa-Nch; #Number of bonds in SOP. Each residue has a bond, except for Nch terminal residues 
-Nhb=3*Nnuc-Nchr #Number of hamonic bonds
+Nharb=3*Nnuc-Nchr #Number of hamonic bonds
 Nang=4*Nnuc-3*Nchr #Number of bond angles (RNA)
 Nst = Nnuc -3*Nchr
 
@@ -361,7 +375,7 @@ for i in range(Naa):
         f.write("%d %d %f %f %f\n" % (i,i+1,(casv[i]-casv[i+1]).norm(),bond_k,bond_R0))
 
 f.write("HarmonicBonds\n")
-f.write("%d\n" % Nhb)  #Number of harmonic bonds
+f.write("%d\n" % Nharb)  #Number of harmonic bonds
         
 for i in range(Nnuc):
     iP = 2*Naa+i
@@ -394,8 +408,7 @@ for i in range(Nnuc):
         f.write("%d %d %d %f %f\n" % (iS,iPnext,iSnext, DTRNA_angle_k_BSP, calc_angle(susv[i],phsv[i+1],susv[i+1])))
 
 #Stack
-f.write("Stack\n")
-f.write("%d\n" % Nst)
+f.write("#Stack %d\n" % Nst)
 for i in range(Nnuc):
     ## Check if stack exists between i and (i-1)
     if i==0:       # The first residue in the first chain (no stack)
@@ -416,7 +429,7 @@ for i in range(Nnuc):
     iB2 = iS2 + Nnuc
     iP3 = 2*Naa+(i+1)
     n = "%s%s" % (rseq[i-1], rseq[i])
-    f.write("%d %d %d %d %d %d %d %f %f %f %f %f %f %f\n" % 
+    f.write("STACK %d %d %d %d %d %d %d %f %f %f %f %f %f %f\n" % 
             (iP1, iS1, iB1, iP2, iS2, iB2, iP3, 
             DTRNA_st_U0[n], DTRNA_st_k_l, DTRNA_st_k_phi, DTRNA_st_k_phi,
             DTRNA_st_dist[n], DTRNA_st_dih_PSPS, DTRNA_st_dih_SPSP) )
@@ -424,6 +437,107 @@ for i in range(Nnuc):
             #calc_dihedral(phsv[i-1], susv[i-1], phsv[i], susv[i]),   # phi01
             #calc_dihedral(phsv[i+1], susv[i], phsv[i], susv[i-1])) ) # phi02
 
+#Hydrogen bond
+hb_dat = []
+for l in open(hbdatname,'r'):
+    lsp = l.strip().split()
+    if lsp[0] not in ('CAN','NON'):
+        print "Error in reading Hydrogen Bond file:\n"
+        print l
+        sys.exit(2)
+    hb_dat.append(lsp)
+
+Nhb = len(hb_dat)
+f.write("#HydrogenBond %d\n" % Nhb)
+for hb in hb_dat:
+    ires1 = int(hb[1])    # Start from 0
+    ires2 = int(hb[2]) 
+    num_bond = (len(hb) - 4) / 2
+
+    if hb[0] == 'CAN':
+        dist = DTRNA_hb_dist['%s-%s' % (rseq[ires1],rseq[ires2])]
+        angl1 = DTRNA_hb_angl["S%s-%s" % (rseq[ires1],rseq[ires2])]
+        angl2 = DTRNA_hb_angl["S%s-%s" % (rseq[ires2],rseq[ires1])]
+        dih = DTRNA_hb_dih["S%s-%sS" % (rseq[ires1],rseq[ires2])]
+        dih1 = DTRNA_hb_dih["PS%s-%s" % (rseq[ires1],rseq[ires2])]
+        dih2 = DTRNA_hb_dih["PS%s-%s" % (rseq[ires2],rseq[ires1])]
+        i1 = 2*Naa + 2 * Nnuc + ires1      # B
+        i3 = 2*Naa + 1 * Nnuc + ires1      # S
+        i5 = 2*Naa + 0 * Nnuc + ires1 + 1  # P (down stream (3'))
+        i2 = 2*Naa + 2 * Nnuc + ires2      # B
+        i4 = 2*Naa + 1 * Nnuc + ires2      # S
+        i6 = 2*Naa + 0 * Nnuc + ires2 + 1  # P (down stream (3'))
+
+    else: # 'NON'
+        if hb[3] in ("O2'",):
+            hbtype = 'S'
+        elif hb[3] in ('OP2', 'OP1'):
+            hbtype = 'P'
+        else:
+            hbtype = 'B'
+        if hb[4] in ("O2'",):
+            hbtype += 'S'
+        elif hb[4] in ('OP2', 'OP1'):
+            hbtype += 'P'
+        else:
+            hbtype += 'B'
+
+        if hbtype[0] == 'B':
+            i1 = 2*Naa + 2 * Nnuc + ires1      # B
+            i3 = 2*Naa + 1 * Nnuc + ires1      # S
+            i5 = 2*Naa + 0 * Nnuc + ires1 + 1  # P (down stream (3'))
+            r1 = basv[ires1]
+            r3 = susv[ires1]
+            r5 = phsv[ires1+1]
+        elif hbtype[0] == 'S':
+            i1 = 2*Naa + 1 * Nnuc + ires1      # S
+            i3 = 2*Naa + 0 * Nnuc + ires1 + 1  # P (down stream (3'))
+            i5 = 2*Naa + 1 * Nnuc + ires1 + 1  # S (down stream (3'))
+            r1 = susv[ires1]
+            r3 = phsv[ires1+1]
+            r5 = susv[ires1+1]
+        elif hbtype[0] == 'P':
+            i1 = 2*Naa + 0 * Nnuc + ires1      # P
+            i3 = 2*Naa + 1 * Nnuc + ires1      # S
+            i5 = 2*Naa + 0 * Nnuc + ires1 + 1  # P (down stream (3'))
+            r1 = phsv[ires1]
+            r3 = susv[ires1]
+            r5 = phsv[ires1+1]
+        if hbtype[1] == 'B':
+            i2 = 2*Naa + 2 * Nnuc + ires2      # B
+            i4 = 2*Naa + 1 * Nnuc + ires2      # S
+            i6 = 2*Naa + 0 * Nnuc + ires2 + 1  # P (down stream (3'))
+            r2 = basv[ires2]
+            r4 = susv[ires2]
+            r6 = phsv[ires2+1]
+        elif hbtype[1] == 'S':
+            i2 = 2*Naa + 1 * Nnuc + ires2      # S
+            i4 = 2*Naa + 0 * Nnuc + ires2 + 1  # P (down stream (3'))
+            i6 = 2*Naa + 1 * Nnuc + ires2 + 1  # S (down stream (3'))
+            r2 = susv[ires2]
+            r4 = phsv[ires2+1]
+            r6 = susv[ires2+1]
+        elif hbtype[1] == 'P':
+            i2 = 2*Naa + 0 * Nnuc + ires2      # P
+            i4 = 2*Naa + 1 * Nnuc + ires2      # S
+            i6 = 2*Naa + 0 * Nnuc + ires2 + 1  # P (down stream (3'))
+            r2 = phsv[ires2]
+            r4 = susv[ires2]
+            r6 = phsv[ires2+1]
+
+        dist = (r1 - r2).norm()
+        angl1 = calc_angle(r3,r1,r2)
+        angl2 = calc_angle(r1,r2,r4)
+        dih = calc_dihedral(r3,r1,r2,r4)
+        dih1 = calc_dihedral(r5,r3,r1,r2)
+        dih2 = calc_dihedral(r1,r2,r4,r6)
+
+    f.write("HBOND %d %d %d %d %d %d %f %f %f %f %f %f %f %f %f %f %f %f %f\n" % 
+            (i1, i3, i5, i2, i4, i6,
+            DTRNA_hb_U0 * num_bond,  # U0
+            DTRNA_hb_k_l, DTRNA_hb_k_angl, DTRNA_hb_k_angl,
+            DTRNA_hb_k_dih, DTRNA_hb_k_dih, DTRNA_hb_k_dih, 
+            dist, angl1, angl2, dih, dih1, dih2)) 
 
 #Native contacts of starting structure
 f.write("%d\n" % len(ncs))
@@ -459,11 +573,11 @@ f.write("%d\n" % len(sbs))
 for sb in sbs:
     f.write("%d %d %f\n" % (sb[0],sb[1],sb[2])) 
 
-f.write("Charges\n")
+f.write("#Charges ")
 f.write("%d\n" % len(charges))  #Number of charges
 #Charges
 for c in charges:
-    f.write("%d %f\n" % (c[0],c[1]))
+    f.write("CHARGE %d %f\n" % (c[0],c[1]))
 
 #Starting coordinates
 if Naa>0:

@@ -168,7 +168,7 @@ __global__ void StackEnergy(float4* r, InteractionList<stack> list) {
     // dihedral of P1-S1-P2-S2
     float4 m = cross_product(P1S1, P2S1); // normal vectors
     float4 n = cross_product(P2S1, P2S2);
-    delta = atan2( dot_product(P1S1,n) * sqrt(dot_product(P2S1,P2S1)), dot_product(m,n)) - st.phi01;
+    delta = atan2( dot_product(P1S1,n) * sqrt(dot_product(P2S1,P2S1)), dot_product(m,n)) - st.phi10;
     if (delta > CUDART_PI_F) { 
        delta = delta - 2.*CUDART_PI_F;
     } else if (delta < -CUDART_PI_F) {
@@ -181,7 +181,7 @@ __global__ void StackEnergy(float4* r, InteractionList<stack> list) {
     n.x = -n.x;
     n.y = -n.y;
     n.z = -n.z;
-    delta = atan2( dot_product(P3S2,n) * sqrt(dot_product(P2S2,P2S2)), dot_product(m,n)) - st.phi02;
+    delta = atan2( dot_product(P3S2,n) * sqrt(dot_product(P2S2,P2S2)), dot_product(m,n)) - st.phi20;
     if (delta > CUDART_PI_F) { 
        delta = delta - 2.*CUDART_PI_F;
     } else if (delta < -CUDART_PI_F) {
@@ -227,7 +227,7 @@ __global__ void StackP13Force(float4* r, float4* forces, InteractionList<stack> 
         float4 m = cross_product(P1S1, P2S1); // normal vectors
         float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
-        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
+        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi10;
         if (delta > CUDART_PI_F) { 
             delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -246,7 +246,7 @@ __global__ void StackP13Force(float4* r, float4* forces, InteractionList<stack> 
         n.x = -n.x;
         n.y = -n.y;
         n.z = -n.z;
-        delta = atan2( dot_product(P3S2,n) * sqrt(dot_product(P2S2,P2S2)), dot_product(m,n)) - st.phi02;
+        delta = atan2( dot_product(P3S2,n) * sqrt(dot_product(P2S2,P2S2)), dot_product(m,n)) - st.phi20;
         if (delta > CUDART_PI_F) { 
            delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -297,7 +297,7 @@ __global__ void StackP2Force(float4* r, float4* forces, InteractionList<stack> l
         float4 m = cross_product(P1S1, P2S1); // normal vectors
         float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
-        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
+        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi10;
         if (delta > CUDART_PI_F) { 
             delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -330,7 +330,7 @@ __global__ void StackP2Force(float4* r, float4* forces, InteractionList<stack> l
         n.y = -n.y;
         n.z = -n.z;
         float absP2S2 = sqrt(dot_product(P2S2,P2S2));
-        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi02;
+        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi20;
         if (delta > CUDART_PI_F) { 
            delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -397,7 +397,7 @@ __global__ void StackSForce(float4* r, float4* forces, InteractionList<stack> li
         float4 m = cross_product(P1S1, P2S1); // normal vectors
         float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
-        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
+        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi10;
         if (delta > CUDART_PI_F) { 
             delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -430,7 +430,7 @@ __global__ void StackSForce(float4* r, float4* forces, InteractionList<stack> li
         n.y = -n.y;
         n.z = -n.z;
         float absP2S2 = sqrt(dot_product(P2S2,P2S2));
-        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi02;
+        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi20;
         if (delta > CUDART_PI_F) { 
            delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -494,7 +494,7 @@ __global__ void StackBForce(float4* r, float4* forces, InteractionList<stack> li
         float4 m = cross_product(P1S1, P2S1); // normal vectors
         float4 n = cross_product(P2S1, P2S2);
         float absP2S1 = sqrt(dot_product(P2S1,P2S1));
-        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi01;
+        delta = atan2( dot_product(P1S1,n) * absP2S1, dot_product(m,n)) - st.phi10;
         if (delta > CUDART_PI_F) { 
             delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -508,7 +508,7 @@ __global__ void StackBForce(float4* r, float4* forces, InteractionList<stack> li
         n.y = -n.y;
         n.z = -n.z;
         float absP2S2 = sqrt(dot_product(P2S2,P2S2));
-        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi02;
+        delta = atan2( dot_product(P3S2,n) * absP2S2, dot_product(m,n)) - st.phi20;
         if (delta > CUDART_PI_F) { 
            delta = delta - 2.*CUDART_PI_F;
         } else if (delta < -CUDART_PI_F) {
@@ -525,3 +525,95 @@ __global__ void StackBForce(float4* r, float4* forces, InteractionList<stack> li
     }
     forces[i]=f;
 }
+
+
+__global__ void HydrogenBondEnergy(float4* r, InteractionList<hydrogenbond> list) {
+    int i = blockIdx.x*blockDim.x + threadIdx.x;
+    if (i>=list.N) return;
+
+    float energy = 0.0f;
+    int Nhb=list.count_d[i];
+
+    for (int ihb=0; ihb<Nhb; ihb++) {
+        float denom = 1.0f;
+        hydrogenbond hb = list.map_d[ihb*list.N+i];
+
+        float4 r1 = tex1Dfetch(r_t, hb.i1);
+        float4 r2 = tex1Dfetch(r_t, hb.i2);
+        float4 r3 = tex1Dfetch(r_t, hb.i3);
+        float4 r4 = tex1Dfetch(r_t, hb.i4);
+        float4 r5 = tex1Dfetch(r_t, hb.i5);
+        float4 r6 = tex1Dfetch(r_t, hb.i6);
+
+        float4 v12 = r1 - r2;
+        float4 v13 = r1 - r3;
+        float4 v53 = r5 - r3;
+        float4 v42 = r4 - r2;
+        float4 v46 = r4 - r6;
+
+        float d1212 = dot_product(v12,v12);
+
+        // Distance
+        float d = sqrt(d1212) - hb.l0;
+        denom += hb.kl * d * d;
+
+        // Angle of 3-1=2
+        float cos_theta = dot_product(v13,v12) / sqrt(dot_product(v13,v13) * d1212);
+        d = acos(cos_theta) - hb.theta10;
+        denom += hb.ktheta1 * d * d;
+
+        // Angle of 1=2-4
+        cos_theta = dot_product(v12,v42) / sqrt(d1212 * dot_product(v42,v42));
+        d = acos(cos_theta) - hb.theta20;
+        denom += hb.ktheta2 * d * d;
+
+        // Dihedral of 4-2=1-3
+        float4 c4212 = cross_product(v42, v12);
+        float4 c1213 = cross_product(v12, v13);
+        d = atan2(dot_product(v42,c1213) * sqrt(dot_product(v12,v12)),
+                  dot_product(c4212,c1213))
+            - hb.psi0;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi * d * d;
+
+        // Dihedral of 5-3-1=2
+        float4 m = cross_product(v53, v13);
+        float4 n;
+        n.x = -c1213.x;
+        n.y = -c1213.y;
+        n.z = -c1213.z;
+        d = atan2(dot_product(v53,n) * sqrt(dot_product(v13,v13)),
+                  dot_product(m,n))
+            - hb.psi10;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi1 * d * d;
+
+        // Dihedral of 1=2-4-6
+        m.x = -c4212.x;
+        m.y = -c4212.y;
+        m.z = -c4212.z;
+        n = cross_product(v42,v46);
+        d = atan2(dot_product(v12,n) * sqrt(dot_product(v42,v42)),
+                  dot_product(m,n))
+            - hb.psi20;
+        if (d > CUDART_PI_F) { 
+            d = d - 2.*CUDART_PI_F;
+        } else if (d < -CUDART_PI_F) {
+            d = d + 2.*CUDART_PI_F;
+        }
+        denom += hb.kpsi2 * d * d;
+
+        energy += hb.U0 / denom;
+    }
+
+    r[i].w = 0.5*energy; // To eliminate duplication
+}
+
